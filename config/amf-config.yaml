@@ -1,0 +1,20 @@
+mcc: "250"
+mnc: "03"
+log_file: "amf.log"
+audit_log_file: "amf-audit.log"
+rbac_policy_file: "rbac-policy.conf"
+
+n2:
+  local_address: "127.0.0.1"
+  port: 38412
+
+sbi:
+  bind_address: "127.0.0.1"
+  port: 7777
+  nf_instance: "amf-01"
+
+alarm_thresholds:
+  warning_error_rate_percent: 10.0
+  critical_error_rate_percent: 50.0
+  critical_error_count: 3
+  admin_down_warning: true

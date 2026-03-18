@@ -39,3 +39,27 @@
 
 # debug information files
 *.dwo
+
+# CMake and generated build trees
+build/
+build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+
+# IDE generated files
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.slnx
+
+# Runtime logs and local test artifacts
+*.log
+amf-audit.log
+amf.log
+cli-reload*.json
+cli-reload*.conf
