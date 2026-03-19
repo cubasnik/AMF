@@ -379,13 +379,19 @@ bool InterworkingModule::interwork_n26(bool operational, bool ue_exists, const s
         return send_n26_error_indication(imsi, "unsupported-procedure");
     }
 
-    if (message.procedure == N26ProcedureType::HandoverRequest && message.ies.count("mme-teid") == 0U) {
+    if (message.procedure == N26ProcedureType::HandoverRequest
+        && message.ies.count("legacy") != 0U
+        && message.ies.count("mme-teid") == 0U) {
         message.ies["mme-teid"] = std::to_string(derive_default_teid(imsi));
     }
-    if (message.procedure == N26ProcedureType::HandoverRequest && message.ies.count("enb-teid") == 0U) {
+    if (message.procedure == N26ProcedureType::HandoverRequest
+        && message.ies.count("legacy") != 0U
+        && message.ies.count("enb-teid") == 0U) {
         message.ies["enb-teid"] = std::to_string(derive_default_teid(imsi) ^ 0x00ABCDEFU);
     }
-    if (message.procedure == N26ProcedureType::HandoverRequest && message.ies.count("tai") == 0U) {
+    if (message.procedure == N26ProcedureType::HandoverRequest
+        && message.ies.count("legacy") != 0U
+        && message.ies.count("tai") == 0U) {
         message.ies["tai"] = "250-03";
     }
     if (message.procedure == N26ProcedureType::ContextTransfer

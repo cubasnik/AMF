@@ -95,6 +95,7 @@ private:
         N2ProcedureType procedure {N2ProcedureType::Unknown};
         std::unordered_map<std::string, std::string> ies;
         std::string raw;
+        bool legacy {false};
     };
 
     enum class N8ProcedureType {

@@ -132,7 +132,7 @@ bool ControlPlaneModule::send_n2_nas(bool operational, bool ue_exists, const std
     auto& ctx = n2_ue_context_[imsi];
     ParsedN2Message message = parse_n2_message(imsi, payload);
 
-    if (message.procedure == N2ProcedureType::InitialUEMessage) {
+    if (message.legacy && message.procedure == N2ProcedureType::InitialUEMessage) {
         if (ctx.state == N2UeContextState::InitialUeAssociated || ctx.state == N2UeContextState::ContextSetupComplete) {
             return send_n2_error_indication(imsi, "duplicate-initial-ue-message");
         }
@@ -145,7 +145,7 @@ bool ControlPlaneModule::send_n2_nas(bool operational, bool ue_exists, const std
         }
     }
 
-    if (message.procedure == N2ProcedureType::InitialContextSetupRequest || message.procedure == N2ProcedureType::UEContextReleaseCommand) {
+    if (message.legacy && (message.procedure == N2ProcedureType::InitialContextSetupRequest || message.procedure == N2ProcedureType::UEContextReleaseCommand)) {
         if (message.ies["amf-ue-ngap-id"].empty() && ctx.amf_ue_ngap_id != 0) {
             message.ies["amf-ue-ngap-id"] = to_hex8(ctx.amf_ue_ngap_id);
         }
@@ -154,7 +154,7 @@ bool ControlPlaneModule::send_n2_nas(bool operational, bool ue_exists, const std
         }
     }
 
-    if (message.procedure == N2ProcedureType::Paging) {
+    if (message.legacy && message.procedure == N2ProcedureType::Paging) {
         if (message.ies["ue-paging-id"].empty()) {
             message.ies["ue-paging-id"] = imsi;
         }
@@ -629,6 +629,7 @@ ControlPlaneModule::ParsedN2Message ControlPlaneModule::parse_n2_message(const s
     out.raw = payload;
 
     if (payload == "registration-request") {
+        out.legacy = true;
         out.procedure = N2ProcedureType::InitialUEMessage;
         out.ies["nas-pdu"] = "NAS5G|dir=UL|message=RegistrationRequest";
         out.ies["rrc-establishment-cause"] = "mo-Signalling";
@@ -638,6 +639,7 @@ ControlPlaneModule::ParsedN2Message ControlPlaneModule::parse_n2_message(const s
     }
 
     if (payload == "initial-context-setup") {
+        out.legacy = true;
         out.procedure = N2ProcedureType::InitialContextSetupRequest;
         out.ies["pdu-session-id"] = "10";
         out.ies["qos-flow-id"] = "5";
@@ -646,12 +648,14 @@ ControlPlaneModule::ParsedN2Message ControlPlaneModule::parse_n2_message(const s
     }
 
     if (payload == "ue-context-release") {
+        out.legacy = true;
         out.procedure = N2ProcedureType::UEContextReleaseCommand;
         out.ies["cause"] = "user-inactivity";
         return out;
     }
 
     if (payload == "paging") {
+        out.legacy = true;
         out.procedure = N2ProcedureType::Paging;
         out.ies["ue-paging-id"] = imsi;
         out.ies["tai"] = "250-03";

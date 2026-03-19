@@ -153,6 +153,73 @@ bool test_n26_no_context_release_rejected() {
     return ok;
 }
 
+bool test_n26_handover_strict_ie_validation_rejected() {
+    TestN2 n2;
+    TestN26 n26;
+    TestSbi sbi;
+    auto node = make_node(n2, sbi, n26);
+
+    const std::string imsi = "250030000026006";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.interwork_n26(imsi, "GTPV2C|procedure=HandoverRequest|mme-teid=1001|tai=250-03"),
+        "Structured handover without enb-teid should be rejected");
+    ok &= check(contains(n26.last_payload, "ie.cause=missing-mandatory-ie"), "Missing handover IE should emit missing-mandatory-ie");
+
+    return ok;
+}
+
+bool test_n26_invalid_teid_and_unsupported_procedure_rejected() {
+    TestN2 n2;
+    TestN26 n26;
+    TestSbi sbi;
+    auto node = make_node(n2, sbi, n26);
+
+    const std::string imsi = "250030000026007";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.interwork_n26(imsi, "GTPV2C|procedure=HandoverRequest|mme-teid=0|enb-teid=2001|tai=250-03"),
+        "Invalid MME TEID should be rejected");
+    ok &= check(contains(n26.last_payload, "ie.cause=invalid-mme-teid"), "Invalid MME TEID should emit invalid-mme-teid");
+    ok &= check(!node.interwork_n26(imsi, "GTPV2C|procedure=HandoverRequest|mme-teid=1001|enb-teid=0|tai=250-03"),
+        "Invalid ENB TEID should be rejected");
+    ok &= check(contains(n26.last_payload, "ie.cause=invalid-enb-teid"), "Invalid ENB TEID should emit invalid-enb-teid");
+    ok &= check(!node.interwork_n26(imsi, "GTPV2C|procedure=IsrStatus|mme-teid=1001"),
+        "Unsupported N26 procedure should be rejected");
+    ok &= check(contains(n26.last_payload, "ie.cause=unsupported-procedure"), "Unsupported N26 procedure should emit unsupported-procedure");
+
+    return ok;
+}
+
+bool test_n26_context_and_isr_state_errors_rejected() {
+    TestN2 n2;
+    TestN26 n26;
+    TestSbi sbi;
+    auto node = make_node(n2, sbi, n26);
+
+    const std::string imsi = "250030000026008";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.interwork_n26(imsi, "GTPV2C|procedure=ContextTransfer|target-mme=mme-b"),
+        "Context transfer without handover context should be rejected");
+    ok &= check(contains(n26.last_payload, "ie.cause=no-handover-context"), "Missing handover context should emit no-handover-context");
+    ok &= check(!node.interwork_n26(imsi, "isr-activate"), "ISR activate without context transfer should be rejected");
+    ok &= check(contains(n26.last_payload, "ie.cause=no-context-transfer"), "ISR activate without context transfer should emit no-context-transfer");
+
+    ok &= check(node.interwork_n26(imsi, "handover"), "Handover should be accepted");
+    ok &= check(node.interwork_n26(imsi, "context-transfer"), "Context transfer should be accepted after handover");
+    ok &= check(!node.interwork_n26(imsi, "isr-deactivate"), "ISR deactivate without active ISR should be rejected");
+    ok &= check(contains(n26.last_payload, "ie.cause=isr-not-active"), "ISR deactivate without active ISR should emit isr-not-active");
+
+    return ok;
+}
+
 }  // namespace
 
 int main() {
@@ -162,6 +229,9 @@ int main() {
     ok &= test_n26_missing_mandatory_ie_rejected();
     ok &= test_n26_duplicate_handover_rejected();
     ok &= test_n26_no_context_release_rejected();
+    ok &= test_n26_handover_strict_ie_validation_rejected();
+    ok &= test_n26_invalid_teid_and_unsupported_procedure_rejected();
+    ok &= test_n26_context_and_isr_state_errors_rejected();
 
     if (!ok) {
         return 1;

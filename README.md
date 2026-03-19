@@ -85,70 +85,120 @@ N1 (UE / NAS 5G):
 - [x] Phase 0 (Now): Socket transport + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
 - [x] Phase 1: NAS PDU codec (минимальный набор Registration/Security) вместо string payload (owner: AMF Core + Protocol Team, ETA: done)
 - [x] Phase 2: Процедуры UE context lifecycle + security mode handling (owner: AMF Core + Mobility/Session Team, ETA: done)
-- [x] Phase 3: Negative-path тесты и interop профили (replay/tamper/timer-expiry) (owner: AMF Core + QA/Interop Team, ETA: done)
+- [x] Phase 3: Negative-path тесты и interop профили (replay/tamper/timer-expiry/procedure-collision/unsupported-message) (owner: AMF Core + QA/Interop Team, ETA: done)
+
+Краткий verification status для текущего scope N1:
+
+- Базовый NAS security FSM подтвержден в `amf_tests` (`RegistrationRequest -> AuthenticationRequest -> SecurityModeCommand -> RegistrationAccept -> DeregistrationAccept`).
+- Negative/interop профиль подтвержден в `n1_interop_tests` (`replay`, `tamper`, `timer-expiry`, `procedure-collision`, `unsupported-message`, legacy alias interop).
 
 N2 (gNB / NG-RAN / NGAP):
 
 - [x] Phase 0 (Now): NGAP-like `InitialUEMessage` framing + diagnostics/telemetry (owner: AMF Core, ETA: done)
 - [x] Phase 1: ASN.1/NGAP codec и структурированные IE (owner: AMF Core + Protocol Team, ETA: done-as-text-codec)
 - [x] Phase 2: Покрытие Initial Context Setup, UE Context Release, Paging (owner: AMF Core + Mobility/Session Team, ETA: done)
-- [x] Phase 3: Interop/robustness тесты (malformed IE, duplicate initial UE, no-context release) (owner: AMF Core + QA/Interop Team, ETA: done)
+- [x] Phase 3: Interop/robustness тесты (malformed IE, duplicate initial UE, paging missing IE, no-context setup/release, unsupported procedure) (owner: AMF Core + QA/Interop Team, ETA: done)
+
+Краткий verification status для текущего scope N2:
+
+- Базовый NGAP-like flow подтвержден в `n2_interop_tests` (`InitialUEMessage -> InitialContextSetupRequest -> Paging -> UEContextReleaseCommand`).
+- Negative-path профиль подтвержден в `n2_interop_tests` (`missing-mandatory-ie`, включая `Paging`, `duplicate-initial-ue-message`, `no-ue-context` для setup/release, `unsupported-procedure`).
 
 N3 (UPF / GTP-U):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
 - [x] Phase 1: GTP-U-like header/TEID/encapsulation вместо plain text payload (owner: AMF Core + Protocol Team, ETA: done-as-text-codec)
 - [x] Phase 2: Tunnel lifecycle (`TunnelEstablish`/`TunnelRelease`) и per-UE consistency checks (owner: AMF Core + Mobility/Session Team, ETA: done)
-- [x] Phase 3: Interop/negative tests (`duplicate-tunnel-establish`, `no-tunnel-context`, `teid-mismatch`) (owner: AMF Core + QA/Interop Team, ETA: done)
+- [x] Phase 3: Interop/negative tests (`duplicate-tunnel-establish`, `no-tunnel-context`, `teid-mismatch`, `missing-mandatory-ie`, `invalid-teid`, `unsupported-message`) (owner: AMF Core + QA/Interop Team, ETA: done)
+
+Краткий verification status для текущего scope N3:
+
+- Базовый GTPU-like lifecycle подтвержден в `n3_interop_tests` (`TunnelEstablish`, `UplinkTpdu`, `DownlinkTpdu`, `TunnelRelease`) с header field emulation (`version/flags/type/length/seq`).
+- Negative-path профиль подтвержден в `n3_interop_tests` (`duplicate-tunnel-establish`, `no-tunnel-context`, `teid-mismatch`, `missing-mandatory-ie`, `invalid-teid`, `unsupported-message`).
 
 N8 (UDM / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
 - [x] Phase 1: N8SBI-like API контракт для subscription-data (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
 - [x] Phase 2: Procedural validation + per-UE request context (owner: AMF Core + Mobility/Session Team, ETA: done)
-- [x] Phase 3: Interop/negative тесты (missing dataset, unknown procedure) (owner: AMF Core + QA/Interop Team, ETA: done)
+- [x] Phase 3: Interop/negative тесты (missing dataset, unsupported procedure) (owner: AMF Core + QA/Interop Team, ETA: done)
+
+Краткий verification status для текущего scope N8:
+
+- Базовый N8SBI-like flow подтвержден в `n8_n11_interop_tests` для legacy и structured запросов (`GetAmData`, `GetSmfSelectionData`).
+- Negative-path профиль подтвержден в `n8_n11_interop_tests` (`missing-mandatory-ie` для dataset, `unsupported-procedure`).
 
 N11 (SMF / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
 - [x] Phase 1: N11SBI-like API для create/modify/release PDU session (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
 - [x] Phase 2: Процедурный state machine синхронизации PDU session context (owner: AMF Core + Mobility/Session Team, ETA: done)
-- [x] Phase 3: Interop/negative tests (no-session-context, session-id-mismatch, duplicate-create) (owner: AMF Core + QA/Interop Team, ETA: done)
+- [x] Phase 3: Interop/negative tests (no-session-context, session-id-mismatch, duplicate-create, missing-mandatory-ie, unsupported-procedure) (owner: AMF Core + QA/Interop Team, ETA: done)
+
+Краткий verification status для текущего scope N11:
+
+- Базовый N11SBI-like flow подтвержден в `n8_n11_interop_tests` (`Create`, `Modify`, `Release`).
+- Negative-path профиль подтвержден в `n8_n11_interop_tests` (`no-session-context`, `session-id-mismatch`, `duplicate-session-create`, `missing-mandatory-ie`, `unsupported-procedure`).
 
 N12 (AUSF / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
 - [x] Phase 1: N12SBI-like API для auth challenge/response (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
 - [x] Phase 2: Привязка к per-UE auth context и lifecycle (owner: AMF Core + Mobility/Session Team, ETA: done)
-- [x] Phase 3: Негативные auth сценарии (`no-auth-context`, `auth-failed`) (owner: AMF Core + QA/Interop Team, ETA: done)
+- [x] Phase 3: Негативные auth сценарии (`no-auth-context`, `auth-failed`, `missing-mandatory-ie`, `unsupported-auth-method`, `unsupported-procedure`) (owner: AMF Core + QA/Interop Team, ETA: done)
+
+Краткий verification status для текущего scope N12:
+
+- Базовый N12SBI-like auth flow подтвержден в `n12_n15_interop_tests` (`AuthRequest`, `AuthResponse`).
+- Negative-path профиль подтвержден в `n12_n15_interop_tests` (`no-auth-context`, `auth-failed`, `auth-already-pending`, `missing-mandatory-ie`, `unsupported-auth-method`, `unsupported-procedure`).
 
 N14 (AMF-AMF / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
 - [x] Phase 1: HTTP/SBA контракт context transfer (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
 - [x] Phase 2: Handover state transfer consistency checks (owner: AMF Core + Mobility/Session Team, ETA: done)
-- [x] Phase 3: Меж-AMF interop и rollback на partial failure (owner: AMF Core + QA/Interop Team, ETA: done)
+- [x] Phase 3: Меж-AMF interop и rollback на partial failure (`missing-mandatory-ie`, `unsupported-procedure`, `handover-already-prepared`, `target-amf-mismatch`) (owner: AMF Core + QA/Interop Team, ETA: done)
+
+Краткий verification status для текущего scope N14:
+
+- Базовый N14SBI-like transfer flow подтвержден в `n14_n22_interop_tests` (`PrepareHandover`, `ContextTransfer`, `CompleteTransfer`, `RollbackContext`).
+- Negative-path профиль подтвержден в `n14_n22_interop_tests` (`no-prepare-context`, `transfer-id-mismatch`, `missing-mandatory-ie`, `unsupported-procedure`, `handover-already-prepared`, `target-amf-mismatch`).
 
 N15 (PCF / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
 - [x] Phase 1: N15SBI-like policy query/apply контракты (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
 - [x] Phase 2: Policy association lifecycle и обновления (owner: AMF Core + Mobility/Session Team, ETA: done)
-- [x] Phase 3: Negative tests и association mismatch/no-context handling (owner: AMF Core + QA/Interop Team, ETA: done)
+- [x] Phase 3: Negative tests и association mismatch/no-context handling (`missing-mandatory-ie`, `invalid-snssai`, `unsupported-procedure`) (owner: AMF Core + QA/Interop Team, ETA: done)
+
+Краткий verification status для текущего scope N15:
+
+- Базовый N15SBI-like flow подтвержден в `n12_n15_interop_tests` (`GetAmPolicy`, `UpdatePolicyAssociation`).
+- Negative-path профиль подтвержден в `n12_n15_interop_tests` (`no-policy-context`, `association-id-mismatch`, `policy-type-mismatch`, `missing-mandatory-ie`, `invalid-snssai`, `unsupported-procedure`).
 
 N22 (NSSF / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
 - [x] Phase 1: HTTP/SBA slice selection request/response модель (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
 - [x] Phase 2: Selection rules, fallback и consistency with UE context (owner: AMF Core + Mobility/Session Team, ETA: done)
-- [x] Phase 3: Edge-case coverage и interop с NSSF mock (owner: AMF Core + QA/Interop Team, ETA: done)
+- [x] Phase 3: Edge-case coverage и interop с NSSF mock (`invalid-fallback-snssai`, `fallback-not-allowed`, `selection-id-mismatch`, `unsupported-procedure`) (owner: AMF Core + QA/Interop Team, ETA: done)
+
+Краткий verification status для текущего scope N22:
+
+- Базовый N22SBI-like flow подтвержден в `n14_n22_interop_tests` (`SelectSlice`, `UpdateSelection`, `ReleaseSelection`) c fallback логикой.
+- Negative-path профиль подтвержден в `n14_n22_interop_tests` (`invalid-snssai`, `unsupported-snssai`, `invalid-fallback-snssai`, `fallback-not-allowed`, `no-selection-context`, `selection-id-mismatch`, `unsupported-procedure`).
 
 N26 (MME / GTPv2-C):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
 - [x] Phase 1: GTPv2-C-like message foundation для interworking (owner: AMF Core + Protocol Team, ETA: done-as-text-codec)
 - [x] Phase 2: Процедуры handover/ISR/context lifecycle и state coordination (owner: AMF Core + Mobility/Session Team, ETA: done)
-- [x] Phase 3: Interop/negative tests (duplicate handover, no-context release, missing IE) (owner: AMF Core + QA/Interop Team, ETA: done)
+- [x] Phase 3: Interop/negative tests (duplicate handover, no-context release, missing IE, invalid TEID, no-handover-context, no-context-transfer, isr-not-active, unsupported-procedure) (owner: AMF Core + QA/Interop Team, ETA: done)
+
+Краткий verification status для текущего scope N26:
+
+- Базовый GTPV2C-like flow подтвержден в `n26_interop_tests` (`HandoverRequest`, `ContextTransfer`, `IsrActivate`, `IsrDeactivate`, `ReleaseContext`).
+- Negative-path профиль подтвержден в `n26_interop_tests` (`missing-mandatory-ie`, `duplicate-handover-request`, `no-context`, `invalid-mme-teid`, `invalid-enb-teid`, `no-handover-context`, `no-context-transfer`, `isr-not-active`, `unsupported-procedure`).
 
 ### Roadmap/Test-plan Sync
 
@@ -156,16 +206,16 @@ N26 (MME / GTPv2-C):
 
 | Interface | Phase 0 (Now, уже покрыто) | Phase 1 (план) | Phase 2 (план) | Phase 3 (план) |
 | --- | --- | --- | --- | --- |
-| N1 | `tests/amf_tests.cpp` (`test_amf_node_integration`, `test_n1_nas_security_fsm`) | Реализовано в `tests/amf_tests.cpp` (`test_n1_nas_security_fsm`) | Реализовано в `tests/amf_tests.cpp` (`test_n1_nas_security_fsm`) | Реализовано в `tests/n1_interop_tests.cpp` (`test_n1_replay_rejected`, `test_n1_tamper_rejected`, `test_n1_timer_expiry_rejected`) |
-| N2 | `tests/amf_tests.cpp` (`test_amf_node_integration`), `tests/cli_tests.cpp` (`test_show_amf_interfaces_detail_diagnostics`) | Реализовано в `tests/n2_interop_tests.cpp` (`test_n2_initial_ue_and_context_setup`) | Реализовано в `tests/n2_interop_tests.cpp` (`test_n2_release_and_paging`) | Реализовано в `tests/n2_interop_tests.cpp` (`test_n2_missing_ie_rejected`, `test_n2_duplicate_initial_ue_rejected`, `test_n2_release_without_context_rejected`) |
-| N3 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n3_interop_tests.cpp` (`test_n3_legacy_payload_interop`) | Реализовано в `tests/n3_interop_tests.cpp` (`test_n3_structured_lifecycle`) | Реализовано в `tests/n3_interop_tests.cpp` (`test_n3_duplicate_establish_rejected`, `test_n3_no_context_tpdu_rejected`, `test_n3_teid_mismatch_rejected`) |
-| N8 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n8_legacy_and_structured_requests`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n8_legacy_and_structured_requests`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n8_missing_dataset_rejected`) |
-| N11 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n11_create_modify_release_flow`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n11_create_modify_release_flow`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n11_no_context_and_mismatch_rejected`) |
-| N12 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n12_auth_request_and_response`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n12_auth_request_and_response`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n12_missing_and_failed_auth_rejected`, `test_n12_pending_auth_rejected_but_context_preserved`) |
-| N14 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n14_legacy_and_structured_transfer`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n14_legacy_and_structured_transfer`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n14_errors_and_rollback`) |
-| N15 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n15_policy_query_and_update`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n15_policy_query_and_update`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n15_no_context_and_assoc_mismatch_rejected`, `test_n15_schema_rejects_but_context_preserved`) |
-| N22 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n22_selection_and_fallback_flow`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n22_selection_and_fallback_flow`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n22_invalid_and_context_errors`) |
-| N26 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n26_interop_tests.cpp` (`test_n26_handover_and_context_transfer`) | Реализовано в `tests/n26_interop_tests.cpp` (`test_n26_isr_activate_deactivate_flow`) | Реализовано в `tests/n26_interop_tests.cpp` (`test_n26_missing_mandatory_ie_rejected`, `test_n26_duplicate_handover_rejected`, `test_n26_no_context_release_rejected`) |
+| N1 | `tests/amf_tests.cpp` (`test_amf_node_integration`, `test_n1_nas_security_fsm`) | Реализовано в `tests/amf_tests.cpp` (`test_n1_nas_security_fsm`) | Реализовано в `tests/amf_tests.cpp` (`test_n1_nas_security_fsm`) | Реализовано в `tests/n1_interop_tests.cpp` (`test_n1_replay_rejected`, `test_n1_tamper_rejected`, `test_n1_timer_expiry_rejected`, `test_n1_procedure_collision_rejected`, `test_n1_legacy_alias_interop`, `test_n1_unsupported_message_rejected`) |
+| N2 | `tests/amf_tests.cpp` (`test_amf_node_integration`), `tests/cli_tests.cpp` (`test_show_amf_interfaces_detail_diagnostics`) | Реализовано в `tests/n2_interop_tests.cpp` (`test_n2_initial_ue_and_context_setup`) | Реализовано в `tests/n2_interop_tests.cpp` (`test_n2_release_and_paging`) | Реализовано в `tests/n2_interop_tests.cpp` (`test_n2_missing_ie_rejected`, `test_n2_duplicate_initial_ue_rejected`, `test_n2_release_without_context_rejected`, `test_n2_paging_missing_ie_rejected`, `test_n2_initial_context_setup_without_context_rejected`, `test_n2_unsupported_procedure_rejected`) |
+| N3 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n3_interop_tests.cpp` (`test_n3_legacy_payload_interop`) | Реализовано в `tests/n3_interop_tests.cpp` (`test_n3_structured_lifecycle`) | Реализовано в `tests/n3_interop_tests.cpp` (`test_n3_duplicate_establish_rejected`, `test_n3_no_context_tpdu_rejected`, `test_n3_teid_mismatch_rejected`, `test_n3_missing_ie_rejected`, `test_n3_invalid_teid_rejected`, `test_n3_unsupported_message_rejected`) |
+| N8 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n8_legacy_and_structured_requests`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n8_legacy_and_structured_requests`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n8_missing_dataset_rejected`, `test_n8_unsupported_procedure_rejected`) |
+| N11 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n11_create_modify_release_flow`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n11_create_modify_release_flow`) | Реализовано в `tests/n8_n11_interop_tests.cpp` (`test_n11_no_context_and_mismatch_rejected`, `test_n11_duplicate_create_rejected`, `test_n11_missing_mandatory_ie_rejected`, `test_n11_unsupported_procedure_rejected`) |
+| N12 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n12_auth_request_and_response`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n12_auth_request_and_response`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n12_missing_and_failed_auth_rejected`, `test_n12_pending_auth_rejected_but_context_preserved`, `test_n12_missing_mandatory_ie_rejected`, `test_n12_unsupported_auth_method_rejected`, `test_n12_unsupported_procedure_rejected`) |
+| N14 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n14_legacy_and_structured_transfer`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n14_legacy_and_structured_transfer`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n14_errors_and_rollback`, `test_n14_missing_ie_and_unsupported_procedure_rejected`, `test_n14_prepare_collision_and_target_mismatch_rejected`) |
+| N15 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n15_policy_query_and_update`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n15_policy_query_and_update`) | Реализовано в `tests/n12_n15_interop_tests.cpp` (`test_n15_no_context_and_assoc_mismatch_rejected`, `test_n15_schema_rejects_but_context_preserved`, `test_n15_missing_mandatory_ie_rejected`, `test_n15_invalid_snssai_rejected`, `test_n15_unsupported_procedure_rejected`) |
+| N22 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n22_selection_and_fallback_flow`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n22_selection_and_fallback_flow`) | Реализовано в `tests/n14_n22_interop_tests.cpp` (`test_n22_invalid_and_context_errors`, `test_n22_fallback_and_procedure_errors`) |
+| N26 | `tests/amf_tests.cpp` (`test_amf_node_integration`) | Реализовано в `tests/n26_interop_tests.cpp` (`test_n26_handover_and_context_transfer`) | Реализовано в `tests/n26_interop_tests.cpp` (`test_n26_isr_activate_deactivate_flow`) | Реализовано в `tests/n26_interop_tests.cpp` (`test_n26_missing_mandatory_ie_rejected`, `test_n26_duplicate_handover_rejected`, `test_n26_no_context_release_rejected`, `test_n26_handover_strict_ie_validation_rejected`, `test_n26_invalid_teid_and_unsupported_procedure_rejected`, `test_n26_context_and_isr_state_errors_rejected`) |
 | SBI (reference stack) | `tests/amf_tests.cpp` (`test_network_sbi_response_handling`), `tests/cli_tests.cpp` (`test_show_amf_interfaces_errors_last`, `test_show_amf_telemetry`), `tests/config_logging_tests.cpp` (`test_yaml_config_load`, `test_json_config_load`) | Поддерживать как baseline для SBA-интерфейсов | Расширять с процедурными сценариями SBA | Использовать для interop/perf baselines |
 
 ### Ограничения прототипа

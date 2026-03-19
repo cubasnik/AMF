@@ -159,6 +159,68 @@ bool test_n3_teid_mismatch_rejected() {
     return ok;
 }
 
+bool test_n3_missing_ie_rejected() {
+    TestN2 n2;
+    TestN3 n3;
+    TestSbi sbi;
+    amf::AmfPeerInterfaces peers {};
+    peers.n3 = &n3;
+    amf::AmfNode node(n2, sbi, peers);
+
+    const std::string imsi = "250030000003006";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.forward_n3_user_plane(imsi, "GTPU|message=TunnelEstablish|teid=5001"),
+        "Structured TunnelEstablish without qfi should be rejected");
+    ok &= check(contains(n3.last_payload, "message=ErrorIndication"), "Missing IE should emit ErrorIndication");
+    ok &= check(contains(n3.last_payload, "cause=missing-mandatory-ie"), "Missing IE should emit missing-mandatory-ie cause");
+
+    return ok;
+}
+
+bool test_n3_invalid_teid_rejected() {
+    TestN2 n2;
+    TestN3 n3;
+    TestSbi sbi;
+    amf::AmfPeerInterfaces peers {};
+    peers.n3 = &n3;
+    amf::AmfNode node(n2, sbi, peers);
+
+    const std::string imsi = "250030000003007";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.forward_n3_user_plane(imsi, "GTPU|message=TunnelEstablish|teid=0|qfi=9"),
+        "TunnelEstablish with invalid TEID should be rejected");
+    ok &= check(contains(n3.last_payload, "cause=invalid-teid"), "Invalid TEID should emit invalid-teid cause");
+
+    return ok;
+}
+
+bool test_n3_unsupported_message_rejected() {
+    TestN2 n2;
+    TestN3 n3;
+    TestSbi sbi;
+    amf::AmfPeerInterfaces peers {};
+    peers.n3 = &n3;
+    amf::AmfNode node(n2, sbi, peers);
+
+    const std::string imsi = "250030000003008";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.forward_n3_user_plane(imsi, "GTPU|message=EchoRequest|teid=6001"),
+        "Unsupported structured GTPU message should be rejected");
+    ok &= check(contains(n3.last_payload, "message=ErrorIndication"), "Unsupported message should emit ErrorIndication");
+    ok &= check(contains(n3.last_payload, "cause=unsupported-message"), "Unsupported message should emit unsupported-message cause");
+
+    return ok;
+}
+
 }  // namespace
 
 int main() {
@@ -168,6 +230,9 @@ int main() {
     ok &= test_n3_duplicate_establish_rejected();
     ok &= test_n3_no_context_tpdu_rejected();
     ok &= test_n3_teid_mismatch_rejected();
+    ok &= test_n3_missing_ie_rejected();
+    ok &= test_n3_invalid_teid_rejected();
+    ok &= test_n3_unsupported_message_rejected();
 
     if (!ok) {
         return 1;

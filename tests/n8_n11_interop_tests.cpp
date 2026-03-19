@@ -104,6 +104,27 @@ bool test_n8_missing_dataset_rejected() {
     return ok;
 }
 
+bool test_n8_unsupported_procedure_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN8 n8;
+    TestN11 n11;
+    auto node = make_node(n2, sbi, n8, n11);
+
+    const std::string imsi = "250030000008003";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+
+    ok &= check(!node.query_n8_subscription(imsi, "N8SBI|procedure=GetSessionData|dataset=session-data"),
+        "Unsupported N8 procedure should be rejected");
+    ok &= check(contains(n8.last_request, "procedure=ErrorIndication"), "Unsupported procedure should emit ErrorIndication");
+    ok &= check(contains(n8.last_request, "ie.cause=unsupported-procedure"), "Unsupported procedure should emit unsupported-procedure cause");
+
+    return ok;
+}
+
 bool test_n11_create_modify_release_flow() {
     TestN2 n2;
     TestSbi sbi;
@@ -154,14 +175,77 @@ bool test_n11_no_context_and_mismatch_rejected() {
     return ok;
 }
 
+bool test_n11_duplicate_create_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN8 n8;
+    TestN11 n11;
+    auto node = make_node(n2, sbi, n8, n11);
+
+    const std::string imsi = "250030000011003";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(node.manage_n11_pdu_session(imsi, "create"), "Initial create should be accepted");
+    ok &= check(!node.manage_n11_pdu_session(imsi, "create"), "Duplicate create should be rejected");
+    ok &= check(contains(n11.last_operation, "ie.cause=duplicate-session-create"), "Duplicate create should emit duplicate-session-create");
+
+    return ok;
+}
+
+bool test_n11_missing_mandatory_ie_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN8 n8;
+    TestN11 n11;
+    auto node = make_node(n2, sbi, n8, n11);
+
+    const std::string imsi = "250030000011004";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.manage_n11_pdu_session(imsi, "N11SBI|procedure=Create|pdu-session-id=10|dnn=internet"),
+        "Structured create without snssai should be rejected");
+    ok &= check(contains(n11.last_operation, "procedure=ErrorIndication"), "Missing IE should emit ErrorIndication");
+    ok &= check(contains(n11.last_operation, "ie.cause=missing-mandatory-ie"), "Missing IE should emit missing-mandatory-ie");
+
+    return ok;
+}
+
+bool test_n11_unsupported_procedure_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN8 n8;
+    TestN11 n11;
+    auto node = make_node(n2, sbi, n8, n11);
+
+    const std::string imsi = "250030000011005";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.manage_n11_pdu_session(imsi, "N11SBI|procedure=Suspend|pdu-session-id=10"),
+        "Unsupported N11 procedure should be rejected");
+    ok &= check(contains(n11.last_operation, "procedure=ErrorIndication"), "Unsupported procedure should emit ErrorIndication");
+    ok &= check(contains(n11.last_operation, "ie.cause=unsupported-procedure"), "Unsupported procedure should emit unsupported-procedure");
+
+    return ok;
+}
+
 }  // namespace
 
 int main() {
     bool ok = true;
     ok &= test_n8_legacy_and_structured_requests();
     ok &= test_n8_missing_dataset_rejected();
+    ok &= test_n8_unsupported_procedure_rejected();
     ok &= test_n11_create_modify_release_flow();
     ok &= test_n11_no_context_and_mismatch_rejected();
+    ok &= test_n11_duplicate_create_rejected();
+    ok &= test_n11_missing_mandatory_ie_rejected();
+    ok &= test_n11_unsupported_procedure_rejected();
 
     if (!ok) {
         return 1;

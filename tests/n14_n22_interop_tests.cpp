@@ -135,6 +135,52 @@ bool test_n14_errors_and_rollback() {
     return ok;
 }
 
+bool test_n14_missing_ie_and_unsupported_procedure_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN14 n14;
+    TestN22 n22;
+    auto node = make_node(n2, sbi, n14, n22);
+
+    const std::string imsi = "250030000014004";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.transfer_n14_context(imsi, "N14SBI|procedure=PrepareHandover|target-amf=amf-b|source-amf=amf-a|transfer-id=ctx-11"),
+        "PrepareHandover without ue-context-version should be rejected");
+    ok &= check(contains(n14.last_request, "ie.cause=missing-mandatory-ie"), "Missing IE should emit missing-mandatory-ie");
+    ok &= check(!node.transfer_n14_context(imsi, "N14SBI|procedure=AbortTransfer|transfer-id=ctx-11"),
+        "Unsupported N14 procedure should be rejected");
+    ok &= check(contains(n14.last_request, "ie.cause=unsupported-procedure"), "Unsupported N14 procedure should emit unsupported-procedure");
+
+    return ok;
+}
+
+bool test_n14_prepare_collision_and_target_mismatch_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN14 n14;
+    TestN22 n22;
+    auto node = make_node(n2, sbi, n14, n22);
+
+    const std::string imsi = "250030000014005";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(node.transfer_n14_context(imsi, "N14SBI|procedure=PrepareHandover|target-amf=amf-b|source-amf=amf-a|transfer-id=ctx-12|ue-context-version=1"),
+        "Initial prepare should be accepted");
+    ok &= check(!node.transfer_n14_context(imsi, "N14SBI|procedure=PrepareHandover|target-amf=amf-b|source-amf=amf-a|transfer-id=ctx-13|ue-context-version=1"),
+        "Repeated prepare while context pending should be rejected");
+    ok &= check(contains(n14.last_request, "ie.cause=handover-already-prepared"), "Repeated prepare should emit handover-already-prepared");
+    ok &= check(!node.transfer_n14_context(imsi, "N14SBI|procedure=ContextTransfer|target-amf=amf-c|source-amf=amf-a|transfer-id=ctx-12|ue-context-version=1"),
+        "ContextTransfer with different target AMF should be rejected");
+    ok &= check(contains(n14.last_request, "ie.cause=target-amf-mismatch"), "Target mismatch should emit target-amf-mismatch");
+
+    return ok;
+}
+
 bool test_n22_selection_and_fallback_flow() {
     TestN2 n2;
     TestSbi sbi;
@@ -200,14 +246,47 @@ bool test_n22_invalid_and_context_errors() {
     return ok;
 }
 
+bool test_n22_fallback_and_procedure_errors() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN14 n14;
+    TestN22 n22;
+    auto node = make_node(n2, sbi, n14, n22);
+
+    const std::string imsi = "250030000022003";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.select_n22_slice(imsi, "N22SBI|procedure=SelectSlice|requested-snssai=1-999999|allowed-snssai=1-010203|fallback-snssai=bad"),
+        "Invalid fallback SNSSAI should be rejected");
+    ok &= check(contains(n22.last_request, "ie.cause=invalid-fallback-snssai"), "Invalid fallback should emit invalid-fallback-snssai");
+
+    ok &= check(!node.select_n22_slice(imsi, "N22SBI|procedure=SelectSlice|requested-snssai=1-999999|allowed-snssai=1-010203|fallback-snssai=1-112233"),
+        "Fallback outside allowed list should be rejected");
+    ok &= check(contains(n22.last_request, "ie.cause=fallback-not-allowed"), "Disallowed fallback should emit fallback-not-allowed");
+
+    ok &= check(node.select_n22_slice(imsi, "1-010203"), "Initial selection should succeed");
+    ok &= check(!node.select_n22_slice(imsi, "N22SBI|procedure=ReleaseSelection|selection-id=nssf-bad"), "Release with selection-id mismatch should be rejected");
+    ok &= check(contains(n22.last_request, "ie.cause=selection-id-mismatch"), "Selection-id mismatch should emit selection-id-mismatch");
+
+    ok &= check(!node.select_n22_slice(imsi, "N22SBI|procedure=DeleteSelection|selection-id=nssf-bad"), "Unsupported N22 procedure should be rejected");
+    ok &= check(contains(n22.last_request, "ie.cause=unsupported-procedure"), "Unsupported N22 procedure should emit unsupported-procedure");
+
+    return ok;
+}
+
 }  // namespace
 
 int main() {
     bool ok = true;
     ok &= test_n14_legacy_and_structured_transfer();
     ok &= test_n14_errors_and_rollback();
+    ok &= test_n14_missing_ie_and_unsupported_procedure_rejected();
+    ok &= test_n14_prepare_collision_and_target_mismatch_rejected();
     ok &= test_n22_selection_and_fallback_flow();
     ok &= test_n22_invalid_and_context_errors();
+    ok &= test_n22_fallback_and_procedure_errors();
 
     if (!ok) {
         return 1;

@@ -178,6 +178,57 @@ bool test_n1_timer_expiry_rejected() {
     return ok;
 }
 
+bool test_n1_procedure_collision_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN1 n1;
+
+    amf::AmfPeerInterfaces peers {};
+    peers.n1 = &n1;
+    amf::AmfNode node(n2, sbi, peers);
+
+    const std::string imsi = "250030000001005";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(bootstrap_authentication_pending(node, n1, imsi), "UE should move to authentication pending");
+
+    ok &= check(!node.send_n1_nas(imsi, "NAS5G|dir=UL|message=RegistrationRequest"),
+        "Overlapping RegistrationRequest should be rejected");
+    ok &= check(n1.last_payload.find("message=ServiceReject") != std::string::npos,
+        "Procedure collision should trigger ServiceReject");
+    ok &= check(n1.last_payload.find("cause=procedure-collision") != std::string::npos,
+        "Procedure collision reject cause should be procedure-collision");
+
+    return ok;
+}
+
+bool test_n1_unexpected_security_mode_complete_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN1 n1;
+
+    amf::AmfPeerInterfaces peers {};
+    peers.n1 = &n1;
+    amf::AmfNode node(n2, sbi, peers);
+
+    const std::string imsi = "250030000001007";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+
+    ok &= check(!node.send_n1_nas(imsi, "NAS5G|dir=UL|message=SecurityModeComplete"),
+        "Out-of-sequence SecurityModeComplete should be rejected");
+    ok &= check(n1.last_payload.find("message=ServiceReject") != std::string::npos,
+        "Unexpected SecurityModeComplete should trigger ServiceReject");
+    ok &= check(n1.last_payload.find("cause=unexpected-security-mode-complete") != std::string::npos,
+        "Unexpected SecurityModeComplete reject cause should be unexpected-security-mode-complete");
+
+    return ok;
+}
+
 bool test_n1_legacy_alias_interop() {
     TestN2 n2;
     TestSbi sbi;
@@ -205,6 +256,31 @@ bool test_n1_legacy_alias_interop() {
     return ok;
 }
 
+bool test_n1_unsupported_message_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN1 n1;
+
+    amf::AmfPeerInterfaces peers {};
+    peers.n1 = &n1;
+    amf::AmfNode node(n2, sbi, peers);
+
+    const std::string imsi = "250030000001006";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+
+    ok &= check(!node.send_n1_nas(imsi, "NAS5G|dir=UL|message=IdentityResponse"),
+        "Unsupported NAS message should be rejected");
+    ok &= check(n1.last_payload.find("message=ServiceReject") != std::string::npos,
+        "Unsupported NAS message should trigger ServiceReject");
+    ok &= check(n1.last_payload.find("cause=unsupported-nas-message") != std::string::npos,
+        "Unsupported NAS reject cause should be unsupported-nas-message");
+
+    return ok;
+}
+
 }  // namespace
 
 int main() {
@@ -212,7 +288,10 @@ int main() {
     ok &= test_n1_replay_rejected();
     ok &= test_n1_tamper_rejected();
     ok &= test_n1_timer_expiry_rejected();
+    ok &= test_n1_procedure_collision_rejected();
+    ok &= test_n1_unexpected_security_mode_complete_rejected();
     ok &= test_n1_legacy_alias_interop();
+    ok &= test_n1_unsupported_message_rejected();
 
     if (!ok) {
         return 1;

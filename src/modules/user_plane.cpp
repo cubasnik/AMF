@@ -66,10 +66,10 @@ bool UserPlaneModule::forward_n3_user_plane(bool operational, bool ue_exists, co
         context.state = N3TunnelState::Established;
     }
 
-    if (message.type == N3MessageType::TunnelEstablish && message.ies.count("teid") == 0U) {
+    if (message.legacy && message.type == N3MessageType::TunnelEstablish && message.ies.count("teid") == 0U) {
         message.ies["teid"] = std::to_string(derive_default_teid(imsi));
     }
-    if (message.type == N3MessageType::TunnelEstablish && message.ies.count("qfi") == 0U) {
+    if (message.legacy && message.type == N3MessageType::TunnelEstablish && message.ies.count("qfi") == 0U) {
         message.ies["qfi"] = "9";
     }
 
@@ -104,20 +104,24 @@ UserPlaneModule::ParsedN3Message UserPlaneModule::parse_n3_message(const std::st
     ParsedN3Message parsed;
 
     if (payload == "tunnel-establish") {
+        parsed.legacy = true;
         parsed.type = N3MessageType::TunnelEstablish;
         return parsed;
     }
     if (payload == "tunnel-release") {
+        parsed.legacy = true;
         parsed.type = N3MessageType::TunnelRelease;
         return parsed;
     }
     if (payload == "uplink-data") {
+        parsed.legacy = true;
         parsed.type = N3MessageType::UplinkTpdu;
         parsed.ies["payload"] = "sample-ul-data";
         parsed.ies["legacy"] = "1";
         return parsed;
     }
     if (payload == "downlink-data") {
+        parsed.legacy = true;
         parsed.type = N3MessageType::DownlinkTpdu;
         parsed.ies["payload"] = "sample-dl-data";
         parsed.ies["legacy"] = "1";
@@ -148,6 +152,7 @@ UserPlaneModule::ParsedN3Message UserPlaneModule::parse_n3_message(const std::st
     }
 
     parsed.type = N3MessageType::UplinkTpdu;
+    parsed.legacy = true;
     parsed.ies["payload"] = payload;
     parsed.ies["legacy"] = "1";
     return parsed;

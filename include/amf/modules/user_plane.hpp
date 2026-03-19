@@ -39,6 +39,7 @@ private:
     struct ParsedN3Message {
         N3MessageType type {N3MessageType::Unknown};
         std::unordered_map<std::string, std::string> ies;
+        bool legacy {false};
     };
 
     ParsedN3Message parse_n3_message(const std::string& payload) const;

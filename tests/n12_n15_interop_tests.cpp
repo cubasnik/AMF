@@ -139,6 +139,62 @@ bool test_n12_pending_auth_rejected_but_context_preserved() {
     return ok;
 }
 
+bool test_n12_missing_mandatory_ie_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN12 n12;
+    TestN15 n15;
+    auto node = make_node(n2, sbi, n12, n15);
+
+    const std::string imsi = "250030000012004";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(node.authenticate_n12(imsi), "Initial auth-request should be accepted");
+    ok &= check(!node.authenticate_n12(imsi, "N12SBI|procedure=AuthResponse"), "Structured AuthResponse without res-star should be rejected");
+    ok &= check(contains(n12.last_request, "ie.cause=missing-mandatory-ie"), "Missing res-star should emit missing-mandatory-ie");
+
+    return ok;
+}
+
+bool test_n12_unsupported_auth_method_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN12 n12;
+    TestN15 n15;
+    auto node = make_node(n2, sbi, n12, n15);
+
+    const std::string imsi = "250030000012005";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.authenticate_n12(imsi, "N12SBI|procedure=AuthRequest|serving-network-name=5G:mnc03.mcc250.3gppnetwork.org|auth-method=eap"),
+        "Unsupported auth method should be rejected");
+    ok &= check(contains(n12.last_request, "ie.cause=unsupported-auth-method"), "Unsupported auth method should emit unsupported-auth-method");
+
+    return ok;
+}
+
+bool test_n12_unsupported_procedure_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN12 n12;
+    TestN15 n15;
+    auto node = make_node(n2, sbi, n12, n15);
+
+    const std::string imsi = "250030000012006";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.authenticate_n12(imsi, "N12SBI|procedure=AuthCancel|res-star=ABCD1234"), "Unsupported N12 procedure should be rejected");
+    ok &= check(contains(n12.last_request, "ie.cause=unsupported-procedure"), "Unsupported N12 procedure should emit unsupported-procedure");
+
+    return ok;
+}
+
 bool test_n15_policy_query_and_update() {
     TestN2 n2;
     TestSbi sbi;
@@ -218,6 +274,64 @@ bool test_n15_schema_rejects_but_context_preserved() {
     return ok;
 }
 
+bool test_n15_missing_mandatory_ie_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN12 n12;
+    TestN15 n15;
+    auto node = make_node(n2, sbi, n12, n15);
+
+    const std::string imsi = "250030000015004";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.query_n15_policy(imsi, "N15SBI|procedure=GetSmPolicy|snssai=1-010203"),
+        "Structured GetSmPolicy without policy-type should be rejected");
+    ok &= check(contains(n15.last_request, "procedure=ErrorIndication"), "Missing IE should emit ErrorIndication");
+    ok &= check(contains(n15.last_request, "ie.cause=missing-mandatory-ie"), "Missing IE should emit missing-mandatory-ie");
+
+    return ok;
+}
+
+bool test_n15_invalid_snssai_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN12 n12;
+    TestN15 n15;
+    auto node = make_node(n2, sbi, n12, n15);
+
+    const std::string imsi = "250030000015005";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.query_n15_policy(imsi, "N15SBI|procedure=GetAmPolicy|policy-type=am-policy|snssai=bad-snssai"),
+        "Invalid SNSSAI should be rejected");
+    ok &= check(contains(n15.last_request, "ie.cause=invalid-snssai"), "Invalid SNSSAI should emit invalid-snssai");
+
+    return ok;
+}
+
+bool test_n15_unsupported_procedure_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    TestN12 n12;
+    TestN15 n15;
+    auto node = make_node(n2, sbi, n12, n15);
+
+    const std::string imsi = "250030000015006";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.query_n15_policy(imsi, "N15SBI|procedure=DeletePolicyAssociation|association-id=pcf-1"),
+        "Unsupported N15 procedure should be rejected");
+    ok &= check(contains(n15.last_request, "ie.cause=unsupported-procedure"), "Unsupported N15 procedure should emit unsupported-procedure");
+
+    return ok;
+}
+
 }  // namespace
 
 int main() {
@@ -225,9 +339,15 @@ int main() {
     ok &= test_n12_auth_request_and_response();
     ok &= test_n12_missing_and_failed_auth_rejected();
     ok &= test_n12_pending_auth_rejected_but_context_preserved();
+    ok &= test_n12_missing_mandatory_ie_rejected();
+    ok &= test_n12_unsupported_auth_method_rejected();
+    ok &= test_n12_unsupported_procedure_rejected();
     ok &= test_n15_policy_query_and_update();
     ok &= test_n15_no_context_and_assoc_mismatch_rejected();
     ok &= test_n15_schema_rejects_but_context_preserved();
+    ok &= test_n15_missing_mandatory_ie_rejected();
+    ok &= test_n15_invalid_snssai_rejected();
+    ok &= test_n15_unsupported_procedure_rejected();
 
     if (!ok) {
         return 1;

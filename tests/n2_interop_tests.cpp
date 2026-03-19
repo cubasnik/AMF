@@ -132,6 +132,59 @@ bool test_n2_release_without_context_rejected() {
     return ok;
 }
 
+bool test_n2_paging_missing_ie_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    amf::AmfNode node(n2, sbi);
+
+    const std::string imsi = "250030000002008";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.send_n2_nas(imsi, "NGAP|procedure=Paging|ue-paging-id=" + imsi + "|tai=250-03"),
+        "Paging without paging-priority should be rejected");
+    ok &= check(contains(n2.last_payload, "procedure=ErrorIndication"), "Rejected paging should emit ErrorIndication");
+    ok &= check(contains(n2.last_payload, "ie.cause=missing-mandatory-ie"), "Paging missing IE should emit missing-mandatory-ie cause");
+
+    return ok;
+}
+
+bool test_n2_initial_context_setup_without_context_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    amf::AmfNode node(n2, sbi);
+
+    const std::string imsi = "250030000002006";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.send_n2_nas(imsi, "initial-context-setup"), "Context setup without InitialUEMessage should be rejected");
+    ok &= check(contains(n2.last_payload, "procedure=ErrorIndication"), "Rejected context setup should emit ErrorIndication");
+    ok &= check(contains(n2.last_payload, "ie.cause=no-ue-context"), "Context setup without UE context should emit no-ue-context error");
+
+    return ok;
+}
+
+bool test_n2_unsupported_procedure_rejected() {
+    TestN2 n2;
+    TestSbi sbi;
+    amf::AmfNode node(n2, sbi);
+
+    const std::string imsi = "250030000002007";
+    bool ok = true;
+
+    ok &= check(node.start(), "AMF should start");
+    ok &= check(node.register_ue(imsi, "250-03"), "UE should be registered");
+    ok &= check(!node.send_n2_nas(imsi, "NGAP|procedure=HandoverRequired|amf-ue-ngap-id=00000001|ran-ue-ngap-id=RAN-7"),
+        "Unsupported NGAP procedure should be rejected");
+    ok &= check(contains(n2.last_payload, "procedure=ErrorIndication"), "Unsupported procedure should emit ErrorIndication");
+    ok &= check(contains(n2.last_payload, "ie.cause=unsupported-procedure"), "Unsupported procedure should emit unsupported-procedure cause");
+
+    return ok;
+}
+
 }  // namespace
 
 int main() {
@@ -141,6 +194,9 @@ int main() {
     ok &= test_n2_missing_ie_rejected();
     ok &= test_n2_duplicate_initial_ue_rejected();
     ok &= test_n2_release_without_context_rejected();
+    ok &= test_n2_paging_missing_ie_rejected();
+    ok &= test_n2_initial_context_setup_without_context_rejected();
+    ok &= test_n2_unsupported_procedure_rejected();
 
     if (!ok) {
         return 1;
