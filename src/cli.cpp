@@ -525,6 +525,37 @@ bool CliShell::execute_exec_tokens(const std::vector<std::string>& tokens) {
         return true;
     }
 
+    if ((tokens.size() == 3 || tokens.size() == 4) && tokens[0] == "show" && tokens[1] == "amf" && tokens[2] == "telemetry") {
+        std::size_t window_seconds = 60;
+        if (tokens.size() == 4) {
+            std::uint64_t parsed = 0;
+            if (!try_parse_u64(tokens[3], parsed)) {
+                out_ << "Invalid window seconds. Use: show amf telemetry [window-seconds]\n";
+                return false;
+            }
+            window_seconds = static_cast<std::size_t>(parsed);
+        }
+
+        const auto telemetry = node_.list_interface_telemetry(window_seconds);
+        out_ << "AMF transport telemetry (window=" << window_seconds << "s):\n";
+        for (const auto& t : telemetry) {
+            std::ostringstream success_rate_ss;
+            success_rate_ss << std::fixed << std::setprecision(1) << t.success_rate_percent;
+            std::ostringstream p50_ss;
+            p50_ss << std::fixed << std::setprecision(2) << t.latency_p50_ms;
+            std::ostringstream p95_ss;
+            p95_ss << std::fixed << std::setprecision(2) << t.latency_p95_ms;
+
+            out_ << "  " << t.name << " [" << t.plane << "]"
+                 << " attempts=" << t.attempts_in_window
+                 << " success-rate=" << success_rate_ss.str() << "%"
+                 << " p50=" << p50_ss.str() << "ms"
+                 << " p95=" << p95_ss.str() << "ms"
+                 << " successes=" << t.successes_in_window << "\n";
+        }
+        return true;
+    }
+
     if (tokens.size() >= 3 && tokens[0] == "show" && tokens[1] == "amf" && tokens[2] == "ue") {
         if (tokens.size() == 3) {
             const auto ue_list = node_.list_ue();
@@ -580,6 +611,99 @@ bool CliShell::execute_exec_tokens(const std::vector<std::string>& tokens) {
                  << " reason=" << diag.status_reason
                   << " alarm=" << diag.alarm_level
                  << " last-activity=" << diag.last_activity_utc << "\n";
+
+            if (diag.name == "SBI") {
+                out_ << "    fail-timeout=" << diag.sbi_timeout_failures
+                     << " fail-connect=" << diag.sbi_connect_failures
+                     << " fail-non-2xx=" << diag.sbi_non_2xx_failures
+                     << " circuit-open-reject=" << diag.sbi_circuit_open_rejections
+                     << " circuit-open=" << (diag.sbi_circuit_open ? "yes" : "no") << "\n";
+            }
+        }
+        return true;
+    }
+
+    if (tokens.size() >= 5
+        && tokens[0] == "show" && tokens[1] == "amf" && tokens[2] == "interfaces"
+        && tokens[3] == "errors" && tokens[4] == "last") {
+        std::size_t limit = 10;
+        std::size_t index = 5;
+        std::optional<std::string> iface_filter;
+        std::optional<std::string> reason_filter;
+
+        if (index < tokens.size() && tokens[index] != "iface" && tokens[index] != "reason") {
+            std::uint64_t parsed = 0;
+            if (!try_parse_u64(tokens[index], parsed)) {
+                out_ << "Invalid limit. Use: show amf interfaces errors last [N] [iface <name>] [reason <value>]\n";
+                return false;
+            }
+            limit = static_cast<std::size_t>(parsed);
+            ++index;
+        }
+
+        while (index < tokens.size()) {
+            if (tokens[index] == "iface") {
+                if (iface_filter.has_value() || index + 1 >= tokens.size()) {
+                    out_ << "Invalid filter. Use: iface <name>\n";
+                    return false;
+                }
+                iface_filter = tokens[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (tokens[index] == "reason") {
+                if (reason_filter.has_value() || index + 1 >= tokens.size()) {
+                    out_ << "Invalid filter. Use: reason <value>\n";
+                    return false;
+                }
+                reason_filter = tokens[index + 1];
+                index += 2;
+                continue;
+            }
+
+            out_ << "Unknown token in command: " << tokens[index] << "\n";
+            return false;
+        }
+
+        auto events = node_.list_interface_errors_last(std::numeric_limits<std::size_t>::max());
+
+        const auto to_lower = [](std::string value) {
+            std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+                return static_cast<char>(std::tolower(ch));
+            });
+            return value;
+        };
+
+        std::vector<InterfaceErrorEvent> filtered;
+        filtered.reserve(events.size());
+        const std::string iface_filter_lc = iface_filter.has_value() ? to_lower(*iface_filter) : std::string {};
+        const std::string reason_filter_lc = reason_filter.has_value() ? to_lower(*reason_filter) : std::string {};
+
+        for (const auto& event : events) {
+            if (iface_filter.has_value() && to_lower(event.interface_name) != iface_filter_lc) {
+                continue;
+            }
+            if (reason_filter.has_value() && to_lower(event.reason) != reason_filter_lc) {
+                continue;
+            }
+            filtered.push_back(event);
+        }
+
+        if (filtered.size() > limit) {
+            filtered.resize(limit);
+        }
+
+        if (filtered.empty()) {
+            out_ << "No interface errors.\n";
+            return true;
+        }
+
+        out_ << "AMF interface errors (last " << filtered.size() << "):\n";
+        for (const auto& event : filtered) {
+            out_ << "  " << event.timestamp_utc
+                 << " iface=" << event.interface_name
+                 << " reason=" << event.reason << "\n";
         }
         return true;
     }
@@ -642,8 +766,9 @@ bool CliShell::execute_exec_tokens(const std::vector<std::string>& tokens) {
         return true;
     }
 
-    if (tokens.size() == 3 && tokens[0] == "simulate" && tokens[1] == "n8") {
-        out_ << (node_.query_n8_subscription(tokens[2]) ? "N8 subscription query sent.\n" : "N8 query rejected.\n");
+    if (tokens.size() >= 3 && tokens[0] == "simulate" && tokens[1] == "n8") {
+        const auto request = tokens.size() > 3 ? join_tail(tokens, 3) : std::string("get-am-data");
+        out_ << (node_.query_n8_subscription(tokens[2], request) ? "N8 subscription query sent.\n" : "N8 query rejected.\n");
         return true;
     }
 
@@ -653,25 +778,27 @@ bool CliShell::execute_exec_tokens(const std::vector<std::string>& tokens) {
         return true;
     }
 
-    if (tokens.size() == 3 && tokens[0] == "simulate" && tokens[1] == "n12") {
-        out_ << (node_.authenticate_n12(tokens[2]) ? "N12 authentication sent.\n" : "N12 authentication rejected.\n");
+    if (tokens.size() >= 3 && tokens[0] == "simulate" && tokens[1] == "n12") {
+        const auto request = tokens.size() > 3 ? join_tail(tokens, 3) : std::string("auth-request");
+        out_ << (node_.authenticate_n12(tokens[2], request) ? "N12 authentication sent.\n" : "N12 authentication rejected.\n");
         return true;
     }
 
-    if (tokens.size() >= 4 && tokens[0] == "simulate" && tokens[1] == "n14") {
-        const auto target = join_tail(tokens, 3);
-        out_ << (node_.transfer_n14_context(tokens[2], target) ? "N14 context transfer sent.\n" : "N14 transfer rejected.\n");
+    if (tokens.size() >= 3 && tokens[0] == "simulate" && tokens[1] == "n14") {
+        const auto request = tokens.size() > 3 ? join_tail(tokens, 3) : std::string("context-transfer");
+        out_ << (node_.transfer_n14_context(tokens[2], request) ? "N14 context transfer sent.\n" : "N14 transfer rejected.\n");
         return true;
     }
 
-    if (tokens.size() == 3 && tokens[0] == "simulate" && tokens[1] == "n15") {
-        out_ << (node_.query_n15_policy(tokens[2]) ? "N15 policy query sent.\n" : "N15 query rejected.\n");
+    if (tokens.size() >= 3 && tokens[0] == "simulate" && tokens[1] == "n15") {
+        const auto request = tokens.size() > 3 ? join_tail(tokens, 3) : std::string("get-am-policy");
+        out_ << (node_.query_n15_policy(tokens[2], request) ? "N15 policy query sent.\n" : "N15 query rejected.\n");
         return true;
     }
 
-    if (tokens.size() >= 4 && tokens[0] == "simulate" && tokens[1] == "n22") {
-        const auto snssai = join_tail(tokens, 3);
-        out_ << (node_.select_n22_slice(tokens[2], snssai) ? "N22 slice selection sent.\n" : "N22 selection rejected.\n");
+    if (tokens.size() >= 3 && tokens[0] == "simulate" && tokens[1] == "n22") {
+        const auto request = tokens.size() > 3 ? join_tail(tokens, 3) : std::string("select-slice");
+        out_ << (node_.select_n22_slice(tokens[2], request) ? "N22 slice selection sent.\n" : "N22 selection rejected.\n");
         return true;
     }
 
@@ -1678,7 +1805,8 @@ void CliShell::print_lock_status() const {
 
 void CliShell::print_help() const {
     out_ << "Available commands (mode-dependent):\n";
-    out_ << "  [exec] show amf status|stats|interfaces [detail]|ue [imsi]\n";
+    out_ << "  [exec] show amf status|stats|telemetry [window-seconds]|interfaces [detail]|ue [imsi]\n";
+    out_ << "  [exec] show amf interfaces errors last [N] [iface <name>] [reason <value>]\n";
     out_ << "  [exec] show session\n";
     out_ << "  [exec] show policy\n";
     out_ << "  [exec] session owner <owner-id>\n";
@@ -1692,17 +1820,17 @@ void CliShell::print_help() const {
     out_ << "  [exec] amf start|stop|degrade|recover|tick\n";
     out_ << "  [exec] ue register <imsi> <tai>\n";
     out_ << "  [exec] ue deregister <imsi>\n";
-    out_ << "  [exec] simulate n2 <imsi> <payload>\n";
+    out_ << "  [exec] simulate n2 <imsi> <ngap-msg>  (registration-request|initial-context-setup|ue-context-release|paging|NGAP|procedure=...)\n";
     out_ << "  [exec] simulate sbi <service> <payload>\n";
-    out_ << "  [exec] simulate n1 <imsi> <payload>\n";
-    out_ << "  [exec] simulate n3 <imsi> <payload>\n";
-    out_ << "  [exec] simulate n8 <imsi>\n";
-    out_ << "  [exec] simulate n11 <imsi> <operation>\n";
-    out_ << "  [exec] simulate n12 <imsi>\n";
-    out_ << "  [exec] simulate n14 <imsi> <target-amf>\n";
-    out_ << "  [exec] simulate n15 <imsi>\n";
-    out_ << "  [exec] simulate n22 <imsi> <snssai>\n";
-    out_ << "  [exec] simulate n26 <imsi> <operation>\n";
+    out_ << "  [exec] simulate n1 <imsi> <nas-msg>  (registration-request|NAS5G|dir=UL|message=...)\n";
+    out_ << "  [exec] simulate n3 <imsi> <gtpu-msg>  (tunnel-establish|uplink-data|downlink-data|tunnel-release|GTPU|message=...)\n";
+    out_ << "  [exec] simulate n8 <imsi> [n8-msg]  (get-am-data|get-smf-selection-data|get-ue-context-in-smf-data|N8SBI|procedure=...)\n";
+    out_ << "  [exec] simulate n11 <imsi> <n11-op>  (create|modify|release|N11SBI|procedure=...)\n";
+    out_ << "  [exec] simulate n12 <imsi> [n12-msg]  (auth-request|auth-response|N12SBI|procedure=...)\n";
+    out_ << "  [exec] simulate n14 <imsi> [n14-msg]  (amf-b|prepare-handover|context-transfer|complete-transfer|rollback-context|N14SBI|procedure=...)\n";
+    out_ << "  [exec] simulate n15 <imsi> [n15-msg]  (get-am-policy|get-sm-policy|update-policy-association|N15SBI|procedure=...)\n";
+    out_ << "  [exec] simulate n22 <imsi> [n22-msg]  (1-010203|select-slice|update-selection|release-selection|N22SBI|procedure=...)\n";
+    out_ << "  [exec] simulate n26 <imsi> <gtpv2c-op>  (handover|context-transfer|isr-activate|isr-deactivate|release|GTPV2C|procedure=...)\n";
     out_ << "  [exec] clear stats\n";
     out_ << "  [exec] configure terminal | conf t\n";
     out_ << "  [config] amf\n";

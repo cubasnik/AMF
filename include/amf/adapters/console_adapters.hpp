@@ -23,7 +23,7 @@ class ConsoleSbiAdapter final : public ISbiInterface {
 public:
     ConsoleSbiAdapter(std::ostream& out, FileLogger* logger = nullptr);
 
-    void notify_service(const std::string& service_name, const std::string& payload) override;
+    bool notify_service(const std::string& service_name, const std::string& payload) override;
 
 private:
     std::ostream& out_;
@@ -56,7 +56,7 @@ class ConsoleN8Adapter final : public IN8Interface {
 public:
     ConsoleN8Adapter(std::ostream& out, FileLogger* logger = nullptr);
 
-    void query_subscription(const std::string& imsi) override;
+    void query_subscription(const std::string& imsi, const std::string& request) override;
 
 private:
     std::ostream& out_;
@@ -78,7 +78,7 @@ class ConsoleN12Adapter final : public IN12Interface {
 public:
     ConsoleN12Adapter(std::ostream& out, FileLogger* logger = nullptr);
 
-    void authenticate_ue(const std::string& imsi) override;
+    void authenticate_ue(const std::string& imsi, const std::string& request) override;
 
 private:
     std::ostream& out_;
@@ -89,7 +89,7 @@ class ConsoleN14Adapter final : public IN14Interface {
 public:
     ConsoleN14Adapter(std::ostream& out, FileLogger* logger = nullptr);
 
-    void transfer_amf_context(const std::string& imsi, const std::string& target_amf) override;
+    void transfer_amf_context(const std::string& imsi, const std::string& request) override;
 
 private:
     std::ostream& out_;
@@ -100,7 +100,7 @@ class ConsoleN15Adapter final : public IN15Interface {
 public:
     ConsoleN15Adapter(std::ostream& out, FileLogger* logger = nullptr);
 
-    void query_policy(const std::string& imsi) override;
+    void query_policy(const std::string& imsi, const std::string& request) override;
 
 private:
     std::ostream& out_;
@@ -111,7 +111,7 @@ class ConsoleN22Adapter final : public IN22Interface {
 public:
     ConsoleN22Adapter(std::ostream& out, FileLogger* logger = nullptr);
 
-    void select_network_slice(const std::string& imsi, const std::string& snssai) override;
+    void select_network_slice(const std::string& imsi, const std::string& request) override;
 
 private:
     std::ostream& out_;

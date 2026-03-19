@@ -76,6 +76,36 @@ struct InterfaceDiagnostics {
     std::string status_reason {"unknown"};
     std::string alarm_level {"none"};
     std::string last_activity_utc {"never"};
+    std::size_t sbi_timeout_failures {0};
+    std::size_t sbi_connect_failures {0};
+    std::size_t sbi_non_2xx_failures {0};
+    std::size_t sbi_circuit_open_rejections {0};
+    bool sbi_circuit_open {false};
+};
+
+struct InterfaceErrorEvent {
+    std::string interface_name;
+    std::string reason;
+    std::string timestamp_utc;
+};
+
+struct InterfaceTelemetry {
+    std::string name;
+    std::string plane;
+    std::size_t window_seconds {60};
+    std::size_t attempts_in_window {0};
+    std::size_t successes_in_window {0};
+    double success_rate_percent {0.0};
+    double latency_p50_ms {0.0};
+    double latency_p95_ms {0.0};
+};
+
+struct SbiFailureCounters {
+    std::size_t timeout_failures {0};
+    std::size_t connect_failures {0};
+    std::size_t non_2xx_failures {0};
+    std::size_t circuit_open_rejections {0};
+    bool circuit_open {false};
 };
 
 class IN2Interface {
@@ -99,7 +129,7 @@ public:
 class IN8Interface {
 public:
     virtual ~IN8Interface() = default;
-    virtual void query_subscription(const std::string& imsi) = 0;
+    virtual void query_subscription(const std::string& imsi, const std::string& request) = 0;
 };
 
 class IN11Interface {
@@ -111,25 +141,25 @@ public:
 class IN12Interface {
 public:
     virtual ~IN12Interface() = default;
-    virtual void authenticate_ue(const std::string& imsi) = 0;
+    virtual void authenticate_ue(const std::string& imsi, const std::string& request) = 0;
 };
 
 class IN14Interface {
 public:
     virtual ~IN14Interface() = default;
-    virtual void transfer_amf_context(const std::string& imsi, const std::string& target_amf) = 0;
+    virtual void transfer_amf_context(const std::string& imsi, const std::string& request) = 0;
 };
 
 class IN15Interface {
 public:
     virtual ~IN15Interface() = default;
-    virtual void query_policy(const std::string& imsi) = 0;
+    virtual void query_policy(const std::string& imsi, const std::string& request) = 0;
 };
 
 class IN22Interface {
 public:
     virtual ~IN22Interface() = default;
-    virtual void select_network_slice(const std::string& imsi, const std::string& snssai) = 0;
+    virtual void select_network_slice(const std::string& imsi, const std::string& request) = 0;
 };
 
 class IN26Interface {
@@ -153,7 +183,13 @@ struct AmfPeerInterfaces {
 class ISbiInterface {
 public:
     virtual ~ISbiInterface() = default;
-    virtual void notify_service(const std::string& service_name, const std::string& payload) = 0;
+    virtual bool notify_service(const std::string& service_name, const std::string& payload) = 0;
+    virtual std::string last_failure_reason() const {
+        return "service-reject";
+    }
+    virtual std::optional<SbiFailureCounters> failure_counters() const {
+        return std::nullopt;
+    }
 };
 
 class IAmfLifecycle {
@@ -183,17 +219,19 @@ public:
     virtual bool notify_sbi(const std::string& service_name, const std::string& payload) = 0;
     virtual bool send_n1_nas(const std::string& imsi, const std::string& payload) = 0;
     virtual bool forward_n3_user_plane(const std::string& imsi, const std::string& payload) = 0;
-    virtual bool query_n8_subscription(const std::string& imsi) = 0;
+    virtual bool query_n8_subscription(const std::string& imsi, const std::string& request = "get-am-data") = 0;
     virtual bool manage_n11_pdu_session(const std::string& imsi, const std::string& operation) = 0;
-    virtual bool authenticate_n12(const std::string& imsi) = 0;
-    virtual bool transfer_n14_context(const std::string& imsi, const std::string& target_amf) = 0;
-    virtual bool query_n15_policy(const std::string& imsi) = 0;
-    virtual bool select_n22_slice(const std::string& imsi, const std::string& snssai) = 0;
+    virtual bool authenticate_n12(const std::string& imsi, const std::string& request = "auth-request") = 0;
+    virtual bool transfer_n14_context(const std::string& imsi, const std::string& request = "context-transfer") = 0;
+    virtual bool query_n15_policy(const std::string& imsi, const std::string& request = "get-am-policy") = 0;
+    virtual bool select_n22_slice(const std::string& imsi, const std::string& request = "select-slice") = 0;
     virtual bool interwork_n26(const std::string& imsi, const std::string& operation) = 0;
     virtual bool set_plmn(const std::string& mcc, const std::string& mnc) = 0;
     virtual bool set_alarm_thresholds(const AlarmThresholds& thresholds) = 0;
     virtual std::vector<InterfaceInfo> list_interfaces() const = 0;
     virtual std::vector<InterfaceDiagnostics> list_interface_diagnostics() const = 0;
+    virtual std::vector<InterfaceErrorEvent> list_interface_errors_last(std::size_t limit) const = 0;
+    virtual std::vector<InterfaceTelemetry> list_interface_telemetry(std::size_t window_seconds = 60) const = 0;
 
     virtual AmfStatusSnapshot status() const = 0;
     virtual void clear_stats() = 0;

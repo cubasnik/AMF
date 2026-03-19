@@ -44,6 +44,15 @@ bool test_yaml_config_load() {
         out << "  critical_error_rate_percent: 40.0\n";
         out << "  critical_error_count: 2\n";
         out << "  admin_down_warning: false\n";
+        out << "network_adapters:\n";
+        out << "  mode: \"network\"\n";
+        out << "  sbi_timeout_ms: 1500\n";
+        out << "  sbi_retry_count: 1\n";
+        out << "  sbi_cb_failure_threshold: 2\n";
+        out << "  sbi_cb_reset_seconds: 30\n";
+        out << "  n2_address: \"127.0.0.1\"\n";
+        out << "  n2_port: 39002\n";
+        out << "  n2_transport: \"udp\"\n";
     }
 
     amf::RuntimeConfig cfg;
@@ -59,6 +68,13 @@ bool test_yaml_config_load() {
     ok &= check(cfg.alarm_thresholds.critical_error_rate_percent == 40.0, "YAML critical threshold should match");
     ok &= check(cfg.alarm_thresholds.critical_error_count == 2, "YAML critical count should match");
     ok &= check(!cfg.alarm_thresholds.admin_down_warning, "YAML admin_down_warning should match");
+    ok &= check(cfg.network_adapters.mode == "network", "YAML network adapter mode should match");
+    ok &= check(cfg.network_adapters.sbi_resilience.timeout_ms == 1500, "YAML sbi timeout should match");
+    ok &= check(cfg.network_adapters.sbi_resilience.retry_count == 1, "YAML sbi retry count should match");
+    ok &= check(cfg.network_adapters.sbi_resilience.circuit_breaker_failure_threshold == 2, "YAML sbi cb threshold should match");
+    ok &= check(cfg.network_adapters.sbi_resilience.circuit_breaker_reset_seconds == 30, "YAML sbi cb reset should match");
+    ok &= check(cfg.network_adapters.n2.port == 39002, "YAML n2 endpoint port should match");
+    ok &= check(cfg.network_adapters.n2.transport == "udp", "YAML n2 transport should match");
     return ok;
 }
 
@@ -86,6 +102,16 @@ bool test_json_config_load() {
         out << "    \"critical_error_rate_percent\": 65.0,\n";
         out << "    \"critical_error_count\": 4,\n";
         out << "    \"admin_down_warning\": false\n";
+        out << "  },\n";
+        out << "  \"network_adapters\": {\n";
+        out << "    \"mode\": \"network\",\n";
+        out << "    \"sbi_timeout_ms\": 1200,\n";
+        out << "    \"sbi_retry_count\": 3,\n";
+        out << "    \"sbi_cb_failure_threshold\": 4,\n";
+        out << "    \"sbi_cb_reset_seconds\": 25,\n";
+        out << "    \"n1_address\": \"127.0.0.1\",\n";
+        out << "    \"n1_port\": 39001,\n";
+        out << "    \"n1_transport\": \"tcp\"\n";
         out << "  }\n";
         out << "}\n";
     }
@@ -104,6 +130,13 @@ bool test_json_config_load() {
     ok &= check(cfg.alarm_thresholds.critical_error_rate_percent == 65.0, "JSON critical threshold should match");
     ok &= check(cfg.alarm_thresholds.critical_error_count == 4, "JSON critical count should match");
     ok &= check(!cfg.alarm_thresholds.admin_down_warning, "JSON admin_down_warning should match");
+    ok &= check(cfg.network_adapters.mode == "network", "JSON network adapter mode should match");
+    ok &= check(cfg.network_adapters.sbi_resilience.timeout_ms == 1200, "JSON sbi timeout should match");
+    ok &= check(cfg.network_adapters.sbi_resilience.retry_count == 3, "JSON sbi retry count should match");
+    ok &= check(cfg.network_adapters.sbi_resilience.circuit_breaker_failure_threshold == 4, "JSON sbi cb threshold should match");
+    ok &= check(cfg.network_adapters.sbi_resilience.circuit_breaker_reset_seconds == 25, "JSON sbi cb reset should match");
+    ok &= check(cfg.network_adapters.n1.port == 39001, "JSON n1 endpoint port should match");
+    ok &= check(cfg.network_adapters.n1.transport == "tcp", "JSON n1 transport should match");
     return ok;
 }
 

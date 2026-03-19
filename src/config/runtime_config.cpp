@@ -20,6 +20,9 @@ std::string trim(const std::string& value) {
     return value.substr(first, last - first + 1);
 }
 
+std::optional<std::string> extract_json_value(const std::string& text, const std::string& key);
+std::optional<std::string> extract_json_object(const std::string& text, const std::string& key);
+
 bool is_digits(const std::string& value) {
     return !value.empty() && std::all_of(value.begin(), value.end(), [](unsigned char ch) {
         return std::isdigit(ch) != 0;
@@ -103,6 +106,85 @@ bool validate_alarm_thresholds(const AlarmThresholds& thresholds, std::string& e
     if (thresholds.critical_error_count == 0) {
         error = "Invalid alarm_thresholds.critical_error_count in config (>0)";
         return false;
+    }
+
+    return true;
+}
+
+bool is_supported_transport(const std::string& value) {
+    return value == "tcp" || value == "udp";
+}
+
+bool is_supported_adapter_mode(const std::string& value) {
+    return value == "mock" || value == "network";
+}
+
+bool validate_endpoint(const InterfaceEndpointConfig& endpoint, const std::string& name, std::string& error) {
+    if (endpoint.address.empty()) {
+        error = "Invalid network_adapters." + name + ": empty address";
+        return false;
+    }
+
+    if (!is_valid_port(endpoint.port)) {
+        error = "Invalid network_adapters." + name + ": invalid port";
+        return false;
+    }
+
+    if (!is_supported_transport(endpoint.transport)) {
+        error = "Invalid network_adapters." + name + ": transport must be tcp|udp";
+        return false;
+    }
+
+    return true;
+}
+
+bool validate_network_adapters(const NetworkAdaptersConfig& adapters, std::string& error) {
+    if (!is_supported_adapter_mode(adapters.mode)) {
+        error = "Invalid network_adapters.mode in config: expected mock|network";
+        return false;
+    }
+
+    if (adapters.sbi_resilience.timeout_ms == 0) {
+        error = "Invalid network_adapters.sbi_timeout_ms in config (>0)";
+        return false;
+    }
+    if (adapters.sbi_resilience.circuit_breaker_failure_threshold == 0) {
+        error = "Invalid network_adapters.sbi_cb_failure_threshold in config (>0)";
+        return false;
+    }
+    if (adapters.sbi_resilience.circuit_breaker_reset_seconds == 0) {
+        error = "Invalid network_adapters.sbi_cb_reset_seconds in config (>0)";
+        return false;
+    }
+
+    return validate_endpoint(adapters.n1, "n1", error)
+        && validate_endpoint(adapters.n2, "n2", error)
+        && validate_endpoint(adapters.n3, "n3", error)
+        && validate_endpoint(adapters.n8, "n8", error)
+        && validate_endpoint(adapters.n11, "n11", error)
+        && validate_endpoint(adapters.n12, "n12", error)
+        && validate_endpoint(adapters.n14, "n14", error)
+        && validate_endpoint(adapters.n15, "n15", error)
+        && validate_endpoint(adapters.n22, "n22", error)
+        && validate_endpoint(adapters.n26, "n26", error)
+        && validate_endpoint(adapters.sbi, "sbi", error);
+}
+
+bool apply_endpoint_json(const std::string& object, const std::string& prefix, InterfaceEndpointConfig& endpoint, std::string& error) {
+    if (const auto value = extract_json_value(object, prefix + "_address"); value.has_value()) {
+        endpoint.address = *value;
+    }
+
+    if (const auto value = extract_json_value(object, prefix + "_port"); value.has_value()) {
+        if (!is_digits(*value)) {
+            error = "Invalid network_adapters." + prefix + "_port in config";
+            return false;
+        }
+        endpoint.port = static_cast<std::uint16_t>(std::stoi(*value));
+    }
+
+    if (const auto value = extract_json_value(object, prefix + "_transport"); value.has_value()) {
+        endpoint.transport = *value;
     }
 
     return true;
@@ -251,6 +333,59 @@ bool apply_json_content(const std::string& text, RuntimeConfig& cfg, std::string
         }
     }
 
+    if (const auto network_object = extract_json_object(text, "network_adapters"); network_object.has_value()) {
+        if (const auto mode = extract_json_value(*network_object, "mode"); mode.has_value()) {
+            cfg.network_adapters.mode = *mode;
+        }
+
+        if (const auto timeout_ms = extract_json_value(*network_object, "sbi_timeout_ms"); timeout_ms.has_value()) {
+            std::size_t parsed = 0;
+            if (!parse_size(*timeout_ms, parsed)) {
+                error = "Invalid network_adapters.sbi_timeout_ms in config";
+                return false;
+            }
+            cfg.network_adapters.sbi_resilience.timeout_ms = parsed;
+        }
+        if (const auto retry_count = extract_json_value(*network_object, "sbi_retry_count"); retry_count.has_value()) {
+            std::size_t parsed = 0;
+            if (!parse_size(*retry_count, parsed)) {
+                error = "Invalid network_adapters.sbi_retry_count in config";
+                return false;
+            }
+            cfg.network_adapters.sbi_resilience.retry_count = parsed;
+        }
+        if (const auto cb_threshold = extract_json_value(*network_object, "sbi_cb_failure_threshold"); cb_threshold.has_value()) {
+            std::size_t parsed = 0;
+            if (!parse_size(*cb_threshold, parsed)) {
+                error = "Invalid network_adapters.sbi_cb_failure_threshold in config";
+                return false;
+            }
+            cfg.network_adapters.sbi_resilience.circuit_breaker_failure_threshold = parsed;
+        }
+        if (const auto cb_reset = extract_json_value(*network_object, "sbi_cb_reset_seconds"); cb_reset.has_value()) {
+            std::size_t parsed = 0;
+            if (!parse_size(*cb_reset, parsed)) {
+                error = "Invalid network_adapters.sbi_cb_reset_seconds in config";
+                return false;
+            }
+            cfg.network_adapters.sbi_resilience.circuit_breaker_reset_seconds = parsed;
+        }
+
+        if (!apply_endpoint_json(*network_object, "n1", cfg.network_adapters.n1, error)
+            || !apply_endpoint_json(*network_object, "n2", cfg.network_adapters.n2, error)
+            || !apply_endpoint_json(*network_object, "n3", cfg.network_adapters.n3, error)
+            || !apply_endpoint_json(*network_object, "n8", cfg.network_adapters.n8, error)
+            || !apply_endpoint_json(*network_object, "n11", cfg.network_adapters.n11, error)
+            || !apply_endpoint_json(*network_object, "n12", cfg.network_adapters.n12, error)
+            || !apply_endpoint_json(*network_object, "n14", cfg.network_adapters.n14, error)
+            || !apply_endpoint_json(*network_object, "n15", cfg.network_adapters.n15, error)
+            || !apply_endpoint_json(*network_object, "n22", cfg.network_adapters.n22, error)
+            || !apply_endpoint_json(*network_object, "n26", cfg.network_adapters.n26, error)
+            || !apply_endpoint_json(*network_object, "sbi", cfg.network_adapters.sbi, error)) {
+            return false;
+        }
+    }
+
     if (cfg.cli.mcc.size() != 3 || !is_digits(cfg.cli.mcc)) {
         error = "Invalid mcc in config: expected 3 digits";
         return false;
@@ -280,6 +415,10 @@ bool apply_json_content(const std::string& text, RuntimeConfig& cfg, std::string
         return false;
     }
 
+    if (!validate_network_adapters(cfg.network_adapters, error)) {
+        return false;
+    }
+
     return true;
 }
 
@@ -289,6 +428,7 @@ bool apply_yaml_content(const std::string& text, RuntimeConfig& cfg, std::string
         N2,
         Sbi,
         AlarmThresholds,
+        NetworkAdapters,
     };
 
     Section section = Section::Root;
@@ -311,6 +451,10 @@ bool apply_yaml_content(const std::string& text, RuntimeConfig& cfg, std::string
         }
         if (trimmed == "alarm_thresholds:") {
             section = Section::AlarmThresholds;
+            continue;
+        }
+        if (trimmed == "network_adapters:") {
+            section = Section::NetworkAdapters;
             continue;
         }
 
@@ -382,6 +526,84 @@ bool apply_yaml_content(const std::string& text, RuntimeConfig& cfg, std::string
                 cfg.alarm_thresholds.admin_down_warning = parsed;
             }
         }
+
+        if (section == Section::NetworkAdapters) {
+            if (key == "mode") {
+                cfg.network_adapters.mode = value;
+                continue;
+            }
+            if (key == "sbi_timeout_ms") {
+                std::size_t parsed = 0;
+                if (!parse_size(value, parsed)) {
+                    error = "Invalid network_adapters.sbi_timeout_ms in config";
+                    return false;
+                }
+                cfg.network_adapters.sbi_resilience.timeout_ms = parsed;
+                continue;
+            }
+            if (key == "sbi_retry_count") {
+                std::size_t parsed = 0;
+                if (!parse_size(value, parsed)) {
+                    error = "Invalid network_adapters.sbi_retry_count in config";
+                    return false;
+                }
+                cfg.network_adapters.sbi_resilience.retry_count = parsed;
+                continue;
+            }
+            if (key == "sbi_cb_failure_threshold") {
+                std::size_t parsed = 0;
+                if (!parse_size(value, parsed)) {
+                    error = "Invalid network_adapters.sbi_cb_failure_threshold in config";
+                    return false;
+                }
+                cfg.network_adapters.sbi_resilience.circuit_breaker_failure_threshold = parsed;
+                continue;
+            }
+            if (key == "sbi_cb_reset_seconds") {
+                std::size_t parsed = 0;
+                if (!parse_size(value, parsed)) {
+                    error = "Invalid network_adapters.sbi_cb_reset_seconds in config";
+                    return false;
+                }
+                cfg.network_adapters.sbi_resilience.circuit_breaker_reset_seconds = parsed;
+                continue;
+            }
+
+            const auto apply_endpoint_yaml = [&](const std::string& prefix, InterfaceEndpointConfig& endpoint) -> bool {
+                if (key == prefix + "_address") {
+                    endpoint.address = value;
+                    return true;
+                }
+                if (key == prefix + "_port") {
+                    if (!is_digits(value)) {
+                        error = "Invalid network_adapters." + prefix + "_port in config";
+                        return false;
+                    }
+                    endpoint.port = static_cast<std::uint16_t>(std::stoi(value));
+                    return true;
+                }
+                if (key == prefix + "_transport") {
+                    endpoint.transport = value;
+                    return true;
+                }
+
+                return true;
+            };
+
+            if (!apply_endpoint_yaml("n1", cfg.network_adapters.n1)
+                || !apply_endpoint_yaml("n2", cfg.network_adapters.n2)
+                || !apply_endpoint_yaml("n3", cfg.network_adapters.n3)
+                || !apply_endpoint_yaml("n8", cfg.network_adapters.n8)
+                || !apply_endpoint_yaml("n11", cfg.network_adapters.n11)
+                || !apply_endpoint_yaml("n12", cfg.network_adapters.n12)
+                || !apply_endpoint_yaml("n14", cfg.network_adapters.n14)
+                || !apply_endpoint_yaml("n15", cfg.network_adapters.n15)
+                || !apply_endpoint_yaml("n22", cfg.network_adapters.n22)
+                || !apply_endpoint_yaml("n26", cfg.network_adapters.n26)
+                || !apply_endpoint_yaml("sbi", cfg.network_adapters.sbi)) {
+                return false;
+            }
+        }
     }
 
     if (cfg.cli.mcc.size() != 3 || !is_digits(cfg.cli.mcc)) {
@@ -410,6 +632,10 @@ bool apply_yaml_content(const std::string& text, RuntimeConfig& cfg, std::string
     }
 
     if (!validate_alarm_thresholds(cfg.alarm_thresholds, error)) {
+        return false;
+    }
+
+    if (!validate_network_adapters(cfg.network_adapters, error)) {
         return false;
     }
 

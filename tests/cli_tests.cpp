@@ -15,7 +15,7 @@ public:
 
 class TestSbi final : public amf::ISbiInterface {
 public:
-    void notify_service(const std::string&, const std::string&) override {}
+    bool notify_service(const std::string&, const std::string&) override { return true; }
 };
 
 bool check(bool condition, const std::string& message) {
@@ -199,6 +199,41 @@ bool test_show_amf_interfaces_detail_diagnostics() {
     return ok;
 }
 
+bool test_show_amf_interfaces_errors_last() {
+    const std::string output = run_script(
+        "amf start\n"
+        "simulate n2 250030000000111 fail-service\n"
+        "amf stop\n"
+        "simulate n2 250030000000111 fail-down\n"
+        "show amf interfaces errors last 5 reason admin-down\n"
+        "show amf interfaces errors last 5 iface N2 reason service-reject\n"
+        "show amf interfaces errors last 1\n"
+        "quit\n");
+
+    bool ok = true;
+    ok &= check(contains(output, "AMF interface errors (last 1):"), "Filtered output should support reason filter");
+    ok &= check(contains(output, "iface=N2 reason=admin-down"), "Reason filter should return admin-down entries");
+    ok &= check(contains(output, "iface=N2 reason=service-reject"), "Combined iface+reason filter should return service-reject entries");
+    ok &= check(contains(output, "AMF interface errors (last 1):"), "Interface error history header should be shown");
+    ok &= check(contains(output, "T") && contains(output, "Z"), "Error history should include UTC timestamp");
+    return ok;
+}
+
+bool test_show_amf_telemetry() {
+    const std::string output = run_script(
+        "amf start\n"
+        "simulate n2 250030000000111 fail-case\n"
+        "show amf telemetry 60\n"
+        "quit\n");
+
+    bool ok = true;
+    ok &= check(contains(output, "AMF transport telemetry (window=60s):"), "Telemetry header should be printed");
+    ok &= check(contains(output, "N2 [control-plane]"), "Telemetry should include N2 row");
+    ok &= check(contains(output, "success-rate="), "Telemetry should include success-rate field");
+    ok &= check(contains(output, "p50=") && contains(output, "p95="), "Telemetry should include p50/p95 fields");
+    return ok;
+}
+
 }  // namespace
 
 int main() {
@@ -209,6 +244,8 @@ int main() {
     ok &= test_runtime_config_reload_with_path();
     ok &= test_show_amf_interfaces_inventory();
     ok &= test_show_amf_interfaces_detail_diagnostics();
+    ok &= test_show_amf_interfaces_errors_last();
+    ok &= test_show_amf_telemetry();
 
     if (!ok) {
         return 1;

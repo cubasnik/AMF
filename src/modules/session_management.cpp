@@ -22,8 +22,7 @@ bool SessionManagementModule::notify_sbi(bool operational, const std::string& se
         return false;
     }
 
-    sbi_.notify_service(service_name, payload);
-    return true;
+    return sbi_.notify_service(service_name, payload);
 }
 
 bool SessionManagementModule::set_plmn(const std::string& mcc, const std::string& mnc) {

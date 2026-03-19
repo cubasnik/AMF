@@ -15,11 +15,13 @@ void ConsoleN2Adapter::deliver_nas(const std::string& imsi, const std::string& p
 ConsoleSbiAdapter::ConsoleSbiAdapter(std::ostream& out, FileLogger* logger)
     : out_(out), logger_(logger) {}
 
-void ConsoleSbiAdapter::notify_service(const std::string& service_name, const std::string& payload) {
+bool ConsoleSbiAdapter::notify_service(const std::string& service_name, const std::string& payload) {
     out_ << "[SBI] service=" << service_name << " payload=\"" << payload << "\"\n";
     if (logger_ != nullptr) {
         logger_->log(LogLevel::Info, "SBI notify service=" + service_name + " payload=\"" + payload + "\"");
     }
+
+    return true;
 }
 
 ConsoleN1Adapter::ConsoleN1Adapter(std::ostream& out, FileLogger* logger)
@@ -45,10 +47,10 @@ void ConsoleN3Adapter::forward_user_plane(const std::string& imsi, const std::st
 ConsoleN8Adapter::ConsoleN8Adapter(std::ostream& out, FileLogger* logger)
     : out_(out), logger_(logger) {}
 
-void ConsoleN8Adapter::query_subscription(const std::string& imsi) {
-    out_ << "[N8/UDM] query subscription for ue=" << imsi << "\n";
+void ConsoleN8Adapter::query_subscription(const std::string& imsi, const std::string& request) {
+    out_ << "[N8/UDM] ue=" << imsi << " request=\"" << request << "\"\n";
     if (logger_ != nullptr) {
-        logger_->log(LogLevel::Info, "N8 query_subscription imsi=" + imsi);
+        logger_->log(LogLevel::Info, "N8 query_subscription imsi=" + imsi + " request=\"" + request + "\"");
     }
 }
 
@@ -65,40 +67,40 @@ void ConsoleN11Adapter::manage_pdu_session(const std::string& imsi, const std::s
 ConsoleN12Adapter::ConsoleN12Adapter(std::ostream& out, FileLogger* logger)
     : out_(out), logger_(logger) {}
 
-void ConsoleN12Adapter::authenticate_ue(const std::string& imsi) {
-    out_ << "[N12/AUSF] authenticate ue=" << imsi << "\n";
+void ConsoleN12Adapter::authenticate_ue(const std::string& imsi, const std::string& request) {
+    out_ << "[N12/AUSF] ue=" << imsi << " request=\"" << request << "\"\n";
     if (logger_ != nullptr) {
-        logger_->log(LogLevel::Info, "N12 authenticate_ue imsi=" + imsi);
+        logger_->log(LogLevel::Info, "N12 authenticate_ue imsi=" + imsi + " request=\"" + request + "\"");
     }
 }
 
 ConsoleN14Adapter::ConsoleN14Adapter(std::ostream& out, FileLogger* logger)
     : out_(out), logger_(logger) {}
 
-void ConsoleN14Adapter::transfer_amf_context(const std::string& imsi, const std::string& target_amf) {
-    out_ << "[N14/AMF] transfer context ue=" << imsi << " target=" << target_amf << "\n";
+void ConsoleN14Adapter::transfer_amf_context(const std::string& imsi, const std::string& request) {
+    out_ << "[N14/AMF] ue=" << imsi << " request=\"" << request << "\"\n";
     if (logger_ != nullptr) {
-        logger_->log(LogLevel::Info, "N14 transfer_amf_context imsi=" + imsi + " target=" + target_amf);
+        logger_->log(LogLevel::Info, "N14 transfer_amf_context imsi=" + imsi + " request=\"" + request + "\"");
     }
 }
 
 ConsoleN15Adapter::ConsoleN15Adapter(std::ostream& out, FileLogger* logger)
     : out_(out), logger_(logger) {}
 
-void ConsoleN15Adapter::query_policy(const std::string& imsi) {
-    out_ << "[N15/PCF] query policy for ue=" << imsi << "\n";
+void ConsoleN15Adapter::query_policy(const std::string& imsi, const std::string& request) {
+    out_ << "[N15/PCF] ue=" << imsi << " request=\"" << request << "\"\n";
     if (logger_ != nullptr) {
-        logger_->log(LogLevel::Info, "N15 query_policy imsi=" + imsi);
+        logger_->log(LogLevel::Info, "N15 query_policy imsi=" + imsi + " request=\"" + request + "\"");
     }
 }
 
 ConsoleN22Adapter::ConsoleN22Adapter(std::ostream& out, FileLogger* logger)
     : out_(out), logger_(logger) {}
 
-void ConsoleN22Adapter::select_network_slice(const std::string& imsi, const std::string& snssai) {
-    out_ << "[N22/NSSF] select slice ue=" << imsi << " snssai=" << snssai << "\n";
+void ConsoleN22Adapter::select_network_slice(const std::string& imsi, const std::string& request) {
+    out_ << "[N22/NSSF] ue=" << imsi << " request=\"" << request << "\"\n";
     if (logger_ != nullptr) {
-        logger_->log(LogLevel::Info, "N22 select_network_slice imsi=" + imsi + " snssai=" + snssai);
+        logger_->log(LogLevel::Info, "N22 select_network_slice imsi=" + imsi + " request=\"" + request + "\"");
     }
 }
 

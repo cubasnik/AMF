@@ -18,3 +18,43 @@ alarm_thresholds:
   critical_error_rate_percent: 50.0
   critical_error_count: 3
   admin_down_warning: true
+
+network_adapters:
+  mode: "mock"
+  sbi_timeout_ms: 2000
+  sbi_retry_count: 2
+  sbi_cb_failure_threshold: 3
+  sbi_cb_reset_seconds: 10
+  n1_address: "127.0.0.1"
+  n1_port: 39001
+  n1_transport: "tcp"
+  n2_address: "127.0.0.1"
+  n2_port: 38412
+  n2_transport: "udp"
+  n3_address: "127.0.0.1"
+  n3_port: 2152
+  n3_transport: "udp"
+  n8_address: "127.0.0.1"
+  n8_port: 39008
+  n8_transport: "tcp"
+  n11_address: "127.0.0.1"
+  n11_port: 39011
+  n11_transport: "tcp"
+  n12_address: "127.0.0.1"
+  n12_port: 39012
+  n12_transport: "tcp"
+  n14_address: "127.0.0.1"
+  n14_port: 39014
+  n14_transport: "tcp"
+  n15_address: "127.0.0.1"
+  n15_port: 39015
+  n15_transport: "tcp"
+  n22_address: "127.0.0.1"
+  n22_port: 39022
+  n22_transport: "tcp"
+  n26_address: "127.0.0.1"
+  n26_port: 39026
+  n26_transport: "udp"
+  sbi_address: "127.0.0.1"
+  sbi_port: 7777
+  sbi_transport: "tcp"

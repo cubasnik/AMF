@@ -4,6 +4,7 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <algorithm>
 
 namespace amf {
 
@@ -144,10 +145,12 @@ std::vector<UeContext> AmfNode::list_ue() const {
 
 bool AmfNode::send_n2_nas(const std::string& imsi, const std::string& payload) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
     const bool sent = control_plane_.send_n2_nas(operational, registration_.has_ue(imsi), imsi, payload);
-    record_interface_activity("N2", sent, operational ? "service-reject" : "admin-down");
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("N2", sent, operational ? "service-reject" : "admin-down", latency_ms);
     if (!sent) {
         return false;
     }
@@ -159,10 +162,25 @@ bool AmfNode::send_n2_nas(const std::string& imsi, const std::string& payload) {
 
 bool AmfNode::notify_sbi(const std::string& service_name, const std::string& payload) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
     const bool notified = control_plane_.notify_sbi(operational, service_name, payload);
-    record_interface_activity("SBI", notified, operational ? "service-reject" : "admin-down");
+    const std::string reason = operational ? sbi_.last_failure_reason() : "admin-down";
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("SBI", notified, reason.empty() ? "service-reject" : reason, latency_ms);
+
+    if (const auto counters = sbi_.failure_counters(); counters.has_value()) {
+        auto it = interface_diagnostics_.find("SBI");
+        if (it != interface_diagnostics_.end()) {
+            it->second.sbi_timeout_failures = counters->timeout_failures;
+            it->second.sbi_connect_failures = counters->connect_failures;
+            it->second.sbi_non_2xx_failures = counters->non_2xx_failures;
+            it->second.sbi_circuit_open_rejections = counters->circuit_open_rejections;
+            it->second.sbi_circuit_open = counters->circuit_open;
+        }
+    }
+
     if (!notified) {
         return false;
     }
@@ -174,10 +192,12 @@ bool AmfNode::notify_sbi(const std::string& service_name, const std::string& pay
 
 bool AmfNode::send_n1_nas(const std::string& imsi, const std::string& payload) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
     const bool sent = control_plane_.send_n1_nas(operational, registration_.has_ue(imsi), imsi, payload);
-    record_interface_activity("N1", sent, peers_.n1 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"));
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("N1", sent, peers_.n1 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"), latency_ms);
     if (!sent) {
         return false;
     }
@@ -187,10 +207,12 @@ bool AmfNode::send_n1_nas(const std::string& imsi, const std::string& payload) {
 
 bool AmfNode::forward_n3_user_plane(const std::string& imsi, const std::string& payload) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
     const bool forwarded = user_plane_.forward_n3_user_plane(operational, registration_.has_ue(imsi), imsi, payload);
-    record_interface_activity("N3", forwarded, peers_.n3 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"));
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("N3", forwarded, peers_.n3 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"), latency_ms);
     if (!forwarded) {
         return false;
     }
@@ -198,12 +220,14 @@ bool AmfNode::forward_n3_user_plane(const std::string& imsi, const std::string& 
     return true;
 }
 
-bool AmfNode::query_n8_subscription(const std::string& imsi) {
+bool AmfNode::query_n8_subscription(const std::string& imsi, const std::string& request) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
-    const bool queried = control_plane_.query_n8_subscription(operational, registration_.has_ue(imsi), imsi);
-    record_interface_activity("N8", queried, peers_.n8 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"));
+    const bool queried = control_plane_.query_n8_subscription(operational, registration_.has_ue(imsi), imsi, request);
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("N8", queried, peers_.n8 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"), latency_ms);
     if (!queried) {
         return false;
     }
@@ -213,10 +237,12 @@ bool AmfNode::query_n8_subscription(const std::string& imsi) {
 
 bool AmfNode::manage_n11_pdu_session(const std::string& imsi, const std::string& operation) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
     const bool managed = control_plane_.manage_n11_pdu_session(operational, registration_.has_ue(imsi), imsi, operation);
-    record_interface_activity("N11", managed, peers_.n11 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"));
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("N11", managed, peers_.n11 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"), latency_ms);
     if (!managed) {
         return false;
     }
@@ -224,12 +250,14 @@ bool AmfNode::manage_n11_pdu_session(const std::string& imsi, const std::string&
     return true;
 }
 
-bool AmfNode::authenticate_n12(const std::string& imsi) {
+bool AmfNode::authenticate_n12(const std::string& imsi, const std::string& request) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
-    const bool authenticated = control_plane_.authenticate_n12(operational, registration_.has_ue(imsi), imsi);
-    record_interface_activity("N12", authenticated, peers_.n12 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"));
+    const bool authenticated = control_plane_.authenticate_n12(operational, registration_.has_ue(imsi), imsi, request);
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("N12", authenticated, peers_.n12 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"), latency_ms);
     if (!authenticated) {
         return false;
     }
@@ -237,12 +265,14 @@ bool AmfNode::authenticate_n12(const std::string& imsi) {
     return true;
 }
 
-bool AmfNode::transfer_n14_context(const std::string& imsi, const std::string& target_amf) {
+bool AmfNode::transfer_n14_context(const std::string& imsi, const std::string& request) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
-    const bool transferred = interworking_.transfer_n14_context(operational, registration_.has_ue(imsi), imsi, target_amf);
-    record_interface_activity("N14", transferred, peers_.n14 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"));
+    const bool transferred = interworking_.transfer_n14_context(operational, registration_.has_ue(imsi), imsi, request);
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("N14", transferred, peers_.n14 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"), latency_ms);
     if (!transferred) {
         return false;
     }
@@ -250,12 +280,14 @@ bool AmfNode::transfer_n14_context(const std::string& imsi, const std::string& t
     return true;
 }
 
-bool AmfNode::query_n15_policy(const std::string& imsi) {
+bool AmfNode::query_n15_policy(const std::string& imsi, const std::string& request) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
-    const bool queried = control_plane_.query_n15_policy(operational, registration_.has_ue(imsi), imsi);
-    record_interface_activity("N15", queried, peers_.n15 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"));
+    const bool queried = control_plane_.query_n15_policy(operational, registration_.has_ue(imsi), imsi, request);
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("N15", queried, peers_.n15 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"), latency_ms);
     if (!queried) {
         return false;
     }
@@ -263,12 +295,14 @@ bool AmfNode::query_n15_policy(const std::string& imsi) {
     return true;
 }
 
-bool AmfNode::select_n22_slice(const std::string& imsi, const std::string& snssai) {
+bool AmfNode::select_n22_slice(const std::string& imsi, const std::string& request) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
-    const bool selected = control_plane_.select_n22_slice(operational, registration_.has_ue(imsi), imsi, snssai);
-    record_interface_activity("N22", selected, peers_.n22 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"));
+    const bool selected = control_plane_.select_n22_slice(operational, registration_.has_ue(imsi), imsi, request);
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("N22", selected, peers_.n22 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"), latency_ms);
     if (!selected) {
         return false;
     }
@@ -278,10 +312,12 @@ bool AmfNode::select_n22_slice(const std::string& imsi, const std::string& snssa
 
 bool AmfNode::interwork_n26(const std::string& imsi, const std::string& operation) {
     std::lock_guard<std::mutex> lock(mutex_);
+    const auto started = std::chrono::steady_clock::now();
 
     const bool operational = is_operational();
     const bool interworked = interworking_.interwork_n26(operational, registration_.has_ue(imsi), imsi, operation);
-    record_interface_activity("N26", interworked, peers_.n26 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"));
+    const double latency_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
+    record_interface_activity("N26", interworked, peers_.n26 == nullptr ? "detached" : (operational ? "service-reject" : "admin-down"), latency_ms);
     if (!interworked) {
         return false;
     }
@@ -371,6 +407,94 @@ std::vector<InterfaceDiagnostics> AmfNode::list_interface_diagnostics() const {
     return out;
 }
 
+std::vector<InterfaceErrorEvent> AmfNode::list_interface_errors_last(std::size_t limit) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (limit == 0 || interface_error_history_.empty()) {
+        return {};
+    }
+
+    const std::size_t count = std::min(limit, interface_error_history_.size());
+    std::vector<InterfaceErrorEvent> out;
+    out.reserve(count);
+
+    for (std::size_t i = 0; i < count; ++i) {
+        out.push_back(interface_error_history_[interface_error_history_.size() - 1 - i]);
+    }
+
+    return out;
+}
+
+std::vector<InterfaceTelemetry> AmfNode::list_interface_telemetry(std::size_t window_seconds) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (window_seconds == 0) {
+        window_seconds = 60;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    const auto window = std::chrono::seconds(window_seconds);
+
+    std::vector<InterfaceTelemetry> out;
+    out.reserve(interface_diagnostics_.size());
+
+    const auto push_iface = [&](const std::string& name) {
+        const auto diag_it = interface_diagnostics_.find(name);
+        if (diag_it == interface_diagnostics_.end()) {
+            return;
+        }
+
+        InterfaceTelemetry t {};
+        t.name = diag_it->second.name;
+        t.plane = diag_it->second.plane;
+        t.window_seconds = window_seconds;
+
+        std::vector<double> latencies;
+        const auto samples_it = interface_telemetry_.find(name);
+        if (samples_it != interface_telemetry_.end()) {
+            for (const auto& sample : samples_it->second) {
+                if (now - sample.timestamp > window) {
+                    continue;
+                }
+
+                ++t.attempts_in_window;
+                if (sample.success) {
+                    ++t.successes_in_window;
+                }
+                latencies.push_back(sample.latency_ms);
+            }
+        }
+
+        if (t.attempts_in_window > 0) {
+            t.success_rate_percent = (static_cast<double>(t.successes_in_window) * 100.0) / static_cast<double>(t.attempts_in_window);
+        }
+
+        if (!latencies.empty()) {
+            std::sort(latencies.begin(), latencies.end());
+            const auto idx50 = (latencies.size() - 1) * 50 / 100;
+            const auto idx95 = (latencies.size() - 1) * 95 / 100;
+            t.latency_p50_ms = latencies[idx50];
+            t.latency_p95_ms = latencies[idx95];
+        }
+
+        out.push_back(t);
+    };
+
+    push_iface("N1");
+    push_iface("N2");
+    push_iface("N3");
+    push_iface("N8");
+    push_iface("N11");
+    push_iface("N12");
+    push_iface("N14");
+    push_iface("N15");
+    push_iface("N22");
+    push_iface("N26");
+    push_iface("SBI");
+
+    return out;
+}
+
 AmfStatusSnapshot AmfNode::status() const {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -409,10 +533,16 @@ void AmfNode::init_interface_diagnostics() {
     interface_diagnostics_["SBI"] = {"SBI", "control-plane", true, false, 0, 0, "admin-down", "warning", "never"};
 }
 
-void AmfNode::record_interface_activity(const std::string& iface_name, bool success, const std::string& failure_reason) {
+void AmfNode::record_interface_activity(const std::string& iface_name, bool success, const std::string& failure_reason, double latency_ms) {
     auto it = interface_diagnostics_.find(iface_name);
     if (it == interface_diagnostics_.end()) {
         return;
+    }
+
+    auto& samples = interface_telemetry_[iface_name];
+    samples.push_back(TelemetrySample {std::chrono::steady_clock::now(), latency_ms, success});
+    while (samples.size() > kMaxTelemetrySamples) {
+        samples.pop_front();
     }
 
     it->second.last_activity_utc = now_utc();
@@ -423,6 +553,15 @@ void AmfNode::record_interface_activity(const std::string& iface_name, bool succ
     }
 
     ++it->second.error_count;
+    InterfaceErrorEvent event {};
+    event.interface_name = iface_name;
+    event.reason = failure_reason.empty() ? "service-reject" : failure_reason;
+    event.timestamp_utc = it->second.last_activity_utc;
+    interface_error_history_.push_back(event);
+    if (interface_error_history_.size() > kMaxInterfaceErrorHistory) {
+        interface_error_history_.pop_front();
+    }
+
     if (!failure_reason.empty()) {
         it->second.status_reason = failure_reason;
     } else {
