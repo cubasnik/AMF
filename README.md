@@ -47,22 +47,22 @@
 
 | Интерфейс | Реализация сейчас | 3GPP target | Gap |
 | --- | --- | --- | --- |
-| N1 | NAS5G codec + procedural FSM (`RegistrationRequest -> AuthenticationRequest -> SecurityModeCommand -> RegistrationAccept`) + per-UE security context (`K_AMF`, `RAND`, `AUTN`, UL/DL counters) | NAS (5G) message set + security context handling | Упрощенная crypto-модель и ограниченный набор NAS процедур |
-| N2 | Structured NGAP-like codec with IE validation and procedures (`InitialUEMessage`, `InitialContextSetupRequest`, `UEContextReleaseCommand`, `Paging`) + per-UE NGAP context | Полный NGAP/N2AP (ASN.1 PER, IE validation, процедуры) | Нет ASN.1 PER и покрыта только часть NGAP процедур |
-| N3 | Structured GTPU-like codec + tunnel lifecycle (`TunnelEstablish`, `UplinkTpdu`, `DownlinkTpdu`, `TunnelRelease`) + per-UE tunnel context (`TEID`, `QFI`, UL/DL sequence) + binary-header field emulation (`version/flags/type/length/seq`) | GTP-U encapsulation/decapsulation | Нет настоящего binary GTP-U encode/decode и ограниченный набор процедур |
-| N8 | Structured N8SBI-like contract with procedures (`GetAmData`, `GetSmfSelectionData`, `GetUeContextInSmfData`) + per-UE subscription request context + IE validation/ErrorIndication | SBA API взаимодействие с UDM | Нет полного HTTP schema/model покрытия UDM и ограниченный набор процедур |
-| N11 | Structured N11SBI-like contract with procedures (`Create`, `Modify`, `Release`) + per-UE PDU session state/context + IE/state validation/ErrorIndication | SBA API SMF (PDU session lifecycle) | Нет полного SMF API schema/response model и ограниченный набор процедур |
-| N12 | Structured N12SBI-like auth contract (`AuthRequest`, `AuthResponse`) + per-UE auth context (`RAND`, `AUTN`, `XRES*`, state) + IE/state validation/ErrorIndication | SBA API AUSF authentication flow | Нет полного AKA/EAP и ограниченный набор процедур |
-| N14 | Structured N14SBI-like contract with procedures (`PrepareHandover`, `ContextTransfer`, `CompleteTransfer`, `RollbackContext`) + per-UE handover transfer context (`target AMF`, `transfer-id`, `version`, `state`) + validation/ErrorIndication | SBA AMF context transfer | Нет полного AMF relocation schema/model и покрыта только часть handover context transfer flow |
-| N15 | Structured N15SBI-like contract with procedures (`GetAmPolicy`, `GetSmPolicy`, `UpdatePolicyAssociation`) + per-UE policy association context + IE/state validation/ErrorIndication | SBA API PCF policy control | Нет полного PCF API schema/response model и ограниченный набор процедур |
-| N22 | Structured N22SBI-like contract with procedures (`SelectSlice`, `UpdateSelection`, `ReleaseSelection`) + per-UE selection context (`selection-id`, `selected SNSSAI`, `allowed SNSSAI`, `state`) + fallback/validation/ErrorIndication | SBA API NSSF slice selection | Нет полного NSSF API schema/model и покрыта только часть selection rules |
-| N26 | Structured GTPV2C-like codec with procedures (`HandoverRequest`, `ContextTransfer`, `IsrActivate`, `IsrDeactivate`, `ReleaseContext`) + per-UE MME context (`MME-TEID`, `ENB-TEID`, seq, state) + IE validation/ErrorIndication | GTPv2-C interworking with MME | Нет ASN.1/binary GTPv2-C encoding и ограниченный набор процедур |
+| N1 | NAS5G codec + procedural FSM (`RegistrationRequest -> AuthenticationRequest -> SecurityModeCommand -> RegistrationAccept`) + per-UE security context (`K_AMF`, `RAND`, `AUTN`, UL/DL counters) | NAS (5G) message set + security context handling | Нет full AKA/EAP и production crypto-hardening (key derivation/integrity/ciphering), покрыт только baseline набор NAS процедур |
+| N2 | Structured NGAP-like codec with IE validation and procedures (`InitialUEMessage`, `InitialContextSetupRequest`, `UEContextReleaseCommand`, `Paging`) + per-UE NGAP context | Полный NGAP/N2AP (ASN.1 PER, IE validation, процедуры) | Нет ASN.1 PER on-wire совместимости и полного набора NGAP процедур/IE по 3GPP |
+| N3 | Structured GTPU-like codec + tunnel lifecycle (`TunnelEstablish`, `UplinkTpdu`, `DownlinkTpdu`, `TunnelRelease`) + per-UE tunnel context (`TEID`, `QFI`, UL/DL sequence) + binary-header field emulation (`version/flags/type/length/seq`) | GTP-U encapsulation/decapsulation | Нет production binary GTP-U encode/decode и e2e interop с внешним UPF |
+| N8 | Structured N8SBI-like contract with procedures (`GetAmData`, `GetSmfSelectionData`, `GetUeContextInSmfData`) + per-UE subscription request context + IE validation/ErrorIndication | SBA API взаимодействие с UDM | Нет полного HTTP/OpenAPI schema-model coverage UDM и e2e interop с внешним UDM |
+| N11 | Structured N11SBI-like contract with procedures (`Create`, `Modify`, `Release`) + per-UE PDU session state/context + IE/state validation/ErrorIndication | SBA API SMF (PDU session lifecycle) | Нет полного SMF API schema/response model и e2e interop с внешним SMF |
+| N12 | Structured N12SBI-like auth contract (`AuthRequest`, `AuthResponse`) + per-UE auth context (`RAND`, `AUTN`, `XRES*`, state) + IE/state validation/ErrorIndication | SBA API AUSF authentication flow | Нет полного AKA/EAP, schema-level покрытия AUSF API и e2e interop с внешним AUSF |
+| N14 | Structured N14SBI-like contract with procedures (`PrepareHandover`, `ContextTransfer`, `CompleteTransfer`, `RollbackContext`) + per-UE handover transfer context (`target AMF`, `transfer-id`, `version`, `state`) + validation/ErrorIndication | SBA AMF context transfer | Нет полного AMF relocation schema/model и меж-AMF interop с реальным peer AMF |
+| N15 | Structured N15SBI-like contract with procedures (`GetAmPolicy`, `GetSmPolicy`, `UpdatePolicyAssociation`) + per-UE policy association context + IE/state validation/ErrorIndication | SBA API PCF policy control | Нет полного PCF API schema/response model и e2e interop с внешним PCF |
+| N22 | Structured N22SBI-like contract with procedures (`SelectSlice`, `UpdateSelection`, `ReleaseSelection`) + per-UE selection context (`selection-id`, `selected SNSSAI`, `allowed SNSSAI`, `state`) + fallback/validation/ErrorIndication | SBA API NSSF slice selection | Нет полного NSSF API schema/model, policy/rules parity с 3GPP и e2e interop с внешним NSSF |
+| N26 | Structured GTPV2C-like codec with procedures (`HandoverRequest`, `ContextTransfer`, `IsrActivate`, `IsrDeactivate`, `ReleaseContext`) + per-UE MME context (`MME-TEID`, `ENB-TEID`, seq, state) + IE validation/ErrorIndication | GTPv2-C interworking with MME | Нет production binary GTPv2-C encode/decode и e2e interop с внешним MME |
 
-Приоритеты развития (рекомендуемые):
+Приоритеты развития (обновленные):
 
-1. N2/N1: процедурная сигнализация и корректные протокольные кодеки.
-2. N3/N26: переход с payload-шаблонов на GTP-U/GTPv2-C.
-3. N8/N11/N12/N14/N15/N22: унификация Service-Based интерфейсов на HTTP/SBA контракты по аналогии с текущим SBI stack.
+1. N2/N3/N26: переход от structured text-codec к production on-wire кодекам (ASN.1 PER, binary GTP-U/GTPv2-C) и внешнему interop.
+2. N8/N11/N12/N14/N15/N22: переход от SBI-like контрактов к полному HTTP/OpenAPI schema-model покрытию и e2e interop с внешними NF.
+3. N1: усиление security plane (AKA/EAP, key derivation, integrity/ciphering, anti-replay/timer hardening на протокольном уровне).
 
 ### Roadmap by Interface
 
@@ -95,7 +95,7 @@ N1 (UE / NAS 5G):
 N2 (gNB / NG-RAN / NGAP):
 
 - [x] Phase 0 (Now): NGAP-like `InitialUEMessage` framing + diagnostics/telemetry (owner: AMF Core, ETA: done)
-- [x] Phase 1: ASN.1/NGAP codec и структурированные IE (owner: AMF Core + Protocol Team, ETA: done-as-text-codec)
+- [x] Phase 1: Structured NGAP-like codec и IE validation (interop baseline, без ASN.1 PER) (owner: AMF Core + Protocol Team, ETA: done-structured-interop-baseline)
 - [x] Phase 2: Покрытие Initial Context Setup, UE Context Release, Paging (owner: AMF Core + Mobility/Session Team, ETA: done)
 - [x] Phase 3: Interop/robustness тесты (malformed IE, duplicate initial UE, paging missing IE, no-context setup/release, unsupported procedure) (owner: AMF Core + QA/Interop Team, ETA: done)
 
@@ -107,7 +107,7 @@ N2 (gNB / NG-RAN / NGAP):
 N3 (UPF / GTP-U):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
-- [x] Phase 1: GTP-U-like header/TEID/encapsulation вместо plain text payload (owner: AMF Core + Protocol Team, ETA: done-as-text-codec)
+- [x] Phase 1: GTP-U-like header/TEID/encapsulation (structured interop baseline, без production binary on-wire) (owner: AMF Core + Protocol Team, ETA: done-structured-interop-baseline)
 - [x] Phase 2: Tunnel lifecycle (`TunnelEstablish`/`TunnelRelease`) и per-UE consistency checks (owner: AMF Core + Mobility/Session Team, ETA: done)
 - [x] Phase 3: Interop/negative tests (`duplicate-tunnel-establish`, `no-tunnel-context`, `teid-mismatch`, `missing-mandatory-ie`, `invalid-teid`, `unsupported-message`) (owner: AMF Core + QA/Interop Team, ETA: done)
 
@@ -119,7 +119,7 @@ N3 (UPF / GTP-U):
 N8 (UDM / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
-- [x] Phase 1: N8SBI-like API контракт для subscription-data (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
+- [x] Phase 1: N8SBI-like API контракт для subscription-data (structured interop baseline, без полного OpenAPI/schema-model) (owner: AMF Core + Protocol Team, ETA: done-structured-interop-baseline)
 - [x] Phase 2: Procedural validation + per-UE request context (owner: AMF Core + Mobility/Session Team, ETA: done)
 - [x] Phase 3: Interop/negative тесты (missing dataset, unsupported procedure) (owner: AMF Core + QA/Interop Team, ETA: done)
 
@@ -131,7 +131,7 @@ N8 (UDM / SBA):
 N11 (SMF / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
-- [x] Phase 1: N11SBI-like API для create/modify/release PDU session (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
+- [x] Phase 1: N11SBI-like API для create/modify/release PDU session (structured interop baseline, без полного OpenAPI/schema-model) (owner: AMF Core + Protocol Team, ETA: done-structured-interop-baseline)
 - [x] Phase 2: Процедурный state machine синхронизации PDU session context (owner: AMF Core + Mobility/Session Team, ETA: done)
 - [x] Phase 3: Interop/negative tests (no-session-context, session-id-mismatch, duplicate-create, missing-mandatory-ie, unsupported-procedure) (owner: AMF Core + QA/Interop Team, ETA: done)
 
@@ -143,7 +143,7 @@ N11 (SMF / SBA):
 N12 (AUSF / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
-- [x] Phase 1: N12SBI-like API для auth challenge/response (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
+- [x] Phase 1: N12SBI-like API для auth challenge/response (structured interop baseline, без полного AKA/EAP и OpenAPI/schema-model) (owner: AMF Core + Protocol Team, ETA: done-structured-interop-baseline)
 - [x] Phase 2: Привязка к per-UE auth context и lifecycle (owner: AMF Core + Mobility/Session Team, ETA: done)
 - [x] Phase 3: Негативные auth сценарии (`no-auth-context`, `auth-failed`, `missing-mandatory-ie`, `unsupported-auth-method`, `unsupported-procedure`) (owner: AMF Core + QA/Interop Team, ETA: done)
 
@@ -155,7 +155,7 @@ N12 (AUSF / SBA):
 N14 (AMF-AMF / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
-- [x] Phase 1: HTTP/SBA контракт context transfer (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
+- [x] Phase 1: N14SBI-like/HTTP контракт context transfer (structured interop baseline, без полного relocation OpenAPI/schema-model) (owner: AMF Core + Protocol Team, ETA: done-structured-interop-baseline)
 - [x] Phase 2: Handover state transfer consistency checks (owner: AMF Core + Mobility/Session Team, ETA: done)
 - [x] Phase 3: Меж-AMF interop и rollback на partial failure (`missing-mandatory-ie`, `unsupported-procedure`, `handover-already-prepared`, `target-amf-mismatch`) (owner: AMF Core + QA/Interop Team, ETA: done)
 
@@ -167,7 +167,7 @@ N14 (AMF-AMF / SBA):
 N15 (PCF / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
-- [x] Phase 1: N15SBI-like policy query/apply контракты (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
+- [x] Phase 1: N15SBI-like policy query/apply контракты (structured interop baseline, без полного OpenAPI/schema-model) (owner: AMF Core + Protocol Team, ETA: done-structured-interop-baseline)
 - [x] Phase 2: Policy association lifecycle и обновления (owner: AMF Core + Mobility/Session Team, ETA: done)
 - [x] Phase 3: Negative tests и association mismatch/no-context handling (`missing-mandatory-ie`, `invalid-snssai`, `unsupported-procedure`) (owner: AMF Core + QA/Interop Team, ETA: done)
 
@@ -179,7 +179,7 @@ N15 (PCF / SBA):
 N22 (NSSF / SBA):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
-- [x] Phase 1: HTTP/SBA slice selection request/response модель (owner: AMF Core + Protocol Team, ETA: done-as-text-contract)
+- [x] Phase 1: N22SBI-like/HTTP slice selection request/response модель (structured interop baseline, без полного OpenAPI/schema-model) (owner: AMF Core + Protocol Team, ETA: done-structured-interop-baseline)
 - [x] Phase 2: Selection rules, fallback и consistency with UE context (owner: AMF Core + Mobility/Session Team, ETA: done)
 - [x] Phase 3: Edge-case coverage и interop с NSSF mock (`invalid-fallback-snssai`, `fallback-not-allowed`, `selection-id-mismatch`, `unsupported-procedure`) (owner: AMF Core + QA/Interop Team, ETA: done)
 
@@ -191,7 +191,7 @@ N22 (NSSF / SBA):
 N26 (MME / GTPv2-C):
 
 - [x] Phase 0 (Now): Socket transport payload + diagnostics/telemetry hooks (owner: AMF Core, ETA: done)
-- [x] Phase 1: GTPv2-C-like message foundation для interworking (owner: AMF Core + Protocol Team, ETA: done-as-text-codec)
+- [x] Phase 1: GTPv2-C-like message foundation для interworking (structured interop baseline, без production binary on-wire) (owner: AMF Core + Protocol Team, ETA: done-structured-interop-baseline)
 - [x] Phase 2: Процедуры handover/ISR/context lifecycle и state coordination (owner: AMF Core + Mobility/Session Team, ETA: done)
 - [x] Phase 3: Interop/negative tests (duplicate handover, no-context release, missing IE, invalid TEID, no-handover-context, no-context-transfer, isr-not-active, unsupported-procedure) (owner: AMF Core + QA/Interop Team, ETA: done)
 
@@ -202,9 +202,9 @@ N26 (MME / GTPv2-C):
 
 ### Roadmap/Test-plan Sync
 
-Текущие и планируемые тесты синхронизированы с фазами roadmap:
+Текущий baseline тестов и verification status синхронизированы с фазами roadmap:
 
-| Interface | Phase 0 (Now, уже покрыто) | Phase 1 (план) | Phase 2 (план) | Phase 3 (план) |
+| Interface | Phase 0 (Now, baseline) | Phase 1 (status) | Phase 2 (status) | Phase 3 (status) |
 | --- | --- | --- | --- | --- |
 | N1 | `tests/amf_tests.cpp` (`test_amf_node_integration`, `test_n1_nas_security_fsm`) | Реализовано в `tests/amf_tests.cpp` (`test_n1_nas_security_fsm`) | Реализовано в `tests/amf_tests.cpp` (`test_n1_nas_security_fsm`) | Реализовано в `tests/n1_interop_tests.cpp` (`test_n1_replay_rejected`, `test_n1_tamper_rejected`, `test_n1_timer_expiry_rejected`, `test_n1_procedure_collision_rejected`, `test_n1_legacy_alias_interop`, `test_n1_unsupported_message_rejected`) |
 | N2 | `tests/amf_tests.cpp` (`test_amf_node_integration`), `tests/cli_tests.cpp` (`test_show_amf_interfaces_detail_diagnostics`) | Реализовано в `tests/n2_interop_tests.cpp` (`test_n2_initial_ue_and_context_setup`) | Реализовано в `tests/n2_interop_tests.cpp` (`test_n2_release_and_paging`) | Реализовано в `tests/n2_interop_tests.cpp` (`test_n2_missing_ie_rejected`, `test_n2_duplicate_initial_ue_rejected`, `test_n2_release_without_context_rejected`, `test_n2_paging_missing_ie_rejected`, `test_n2_initial_context_setup_without_context_rejected`, `test_n2_unsupported_procedure_rejected`) |
